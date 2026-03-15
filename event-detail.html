@@ -1,0 +1,370 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Event Workspace - Team Current</title>
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/css/main.css">
+  <link rel="stylesheet" href="/css/animations.css">
+  <script src="/js/auth-guard.js"></script>
+  <style>
+    .workspace-grid { display: grid; grid-template-columns: 2fr 1fr; gap: 24px; }
+    .list-item { 
+      padding: 12px; border: 1px solid var(--border); border-radius: 4px; 
+      margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center;
+      background: var(--surface);
+    }
+    .list-item.missing { border-left: 3px solid var(--danger); }
+    .list-item.returned { border-left: 3px solid var(--success); opacity: 0.7; }
+  </style>
+</head>
+<body>
+  <div class="page-overlay"><div class="page-overlay-line"></div></div>
+
+  <!-- Add Item to Event Modal -->
+  <div class="modal-backdrop" id="outward-modal" onclick="if(event.target===this) toggleModal('outward-modal', false)">
+    <div class="modal-card">
+      <h3 class="card-title" style="color:var(--white); font-size:20px;">Assign Equipment To Event</h3>
+      <form id="outward-form" class="mt-20">
+        <div class="form-group">
+          <label>Search & Select Item</label>
+          <div style="position:relative;">
+            <input type="text" id="item-search" class="form-control" placeholder="Type 2+ letters..." autocomplete="off">
+            <input type="hidden" id="item_id" required>
+            <div id="item-dropdown" style="position:absolute; width:100%; max-height:150px; overflow-y:auto; background:var(--surface-2); border:1px solid var(--border); z-index:100; display:none; border-radius:4px;"></div>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Quantity to Assign</label>
+          <input type="number" id="assign_quantity" class="form-control" min="1" required>
+        </div>
+        <div class="flex gap-10" style="margin-top:20px;">
+          <button type="submit" class="btn btn-primary" id="submit-item-btn" style="flex:1;">Assign Fixed Assets</button>
+          <button type="button" class="btn btn-outline" onclick="toggleModal('outward-modal', false)" style="flex:1;">Cancel</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Return Item from Event Modal -->
+  <div class="modal-backdrop" id="inward-modal" onclick="if(event.target===this) toggleModal('inward-modal', false)">
+    <div class="modal-card">
+      <h3 class="card-title" style="color:var(--white); font-size:20px;">Return Equipment to Godown</h3>
+      <form id="inward-form" class="mt-20">
+        <input type="hidden" id="return_item_id" required>
+        <div class="form-group">
+          <label>Item Name</label>
+          <input type="text" id="return_item_name" class="form-control" disabled>
+        </div>
+        <div class="form-group">
+          <label>Currently Assigned</label>
+          <input type="text" id="return_current_assigned" class="form-control" disabled>
+        </div>
+        <div class="flex gap-10">
+          <div class="form-group" style="flex:1;">
+            <label>Returning Condition Good (Qty)</label>
+            <input type="number" id="return_quantity" class="form-control" min="0" value="0" required>
+          </div>
+          <div class="form-group" style="flex:1;">
+            <label>Missing / Damaged (Qty)</label>
+            <input type="number" id="missing_quantity" class="form-control" min="0" value="0" required>
+          </div>
+        </div>
+        <div class="flex gap-10" style="margin-top:20px;">
+          <button type="submit" class="btn btn-primary" id="submit-return-btn" style="flex:1;">Process Return</button>
+          <button type="button" class="btn btn-outline" onclick="toggleModal('inward-modal', false)" style="flex:1;">Cancel</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div class="app-container">
+    <aside class="sidebar sidebar-enter">
+      <div class="sidebar-header"><div class="logo-badge">TC</div><div class="brand-name">CURRENT</div></div>
+      <nav class="nav-menu">
+        <a href="/pages/dashboard.html" class="nav-item">Dashboard</a>
+        <a href="/pages/inventory.html" class="nav-item">Inventory</a>
+        <a href="/pages/purchases.html" class="nav-item">Purchases</a>
+        <a href="/pages/events.html" class="nav-item active">Events</a>
+      <a href="javascript:void(0)" id="sidebar-logout-btn" class="nav-item" style="margin-top:auto; color:var(--danger); border-top:1px solid var(--border);">Log Out</a>
+      </nav>
+    </aside>
+
+    <main class="main-content" style="padding: 20px 30px;">
+      <header class="header header-enter" style="margin-bottom: 20px; padding-bottom: 15px;">
+        <div>
+          <h1 class="header-title" style="margin-bottom: 5px;" id="event-name">-</h1>
+          <div style="font-size: 14px; color: var(--text-muted);" id="event-subtext">-</div>
+        </div>
+        <div class="flex gap-10 items-center">
+          <select id="status-select" class="form-control" style="width: auto; padding: 6px 12px; font-weight: bold;">
+            <option value="upcoming">Status: Upcoming</option>
+            <option value="ongoing">Status: Ongoing</option>
+            <option value="closed">Status: Closed</option>
+          </select>
+          <button id="download-pdf-btn" class="btn btn-primary admin-only hidden">Delivery Challan PDF</button>
+          <a href="/pages/events.html" class="btn btn-outline" style="padding: 6px 12px;">Back</a>
+        </div>
+      </header>
+
+      <div class="workspace-grid">
+        <!-- EQUIPMENT COLUMN -->
+        <div class="stagger-in" style="--i:1;">
+          <div class="flex justify-between items-center mb-10">
+            <h2 style="font-size:18px;">Assigned Equipment</h2>
+            <button class="btn btn-primary" style="padding:4px 12px; font-size:12px;" onclick="toggleModal('outward-modal', true)">+ Assign Gear</button>
+          </div>
+          
+          <div class="card" style="min-height: 400px; padding: 15px;">
+            <div id="equipment-list">
+              <!-- JS rendered -->
+              <div class="text-muted text-center" style="margin-top: 50px;">Loading equipment...</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- WORKERS COLUMN -->
+        <div class="stagger-in" style="--i:2;">
+          <div class="flex justify-between items-center mb-10">
+            <h2 style="font-size:18px;">Staff & Crew</h2>
+          </div>
+          
+          <div class="card" style="min-height: 400px; padding: 15px; position:relative;">
+            <!-- Assign Staff Form inside card -->
+            <form id="worker-assign-form" class="mb-20" style="padding-bottom:15px; border-bottom:1px solid var(--border);">
+              <div style="position:relative; margin-bottom:10px;">
+                <input type="text" id="worker-search" class="form-control" placeholder="Search worker by name/code..." autocomplete="off">
+                <input type="hidden" id="worker_id">
+                <div id="worker-dropdown" style="position:absolute; width:100%; max-height:150px; overflow-y:auto; background:var(--surface-2); border:1px solid var(--border); z-index:100; display:none; border-radius:4px;"></div>
+              </div>
+              <button type="submit" class="btn btn-primary btn-full admin-only" id="submit-worker-btn" style="padding:8px;">Add Crew to Event</button>
+            </form>
+
+            <div id="workers-list">
+              <!-- JS rendered -->
+              <div class="text-muted text-center" style="margin-top: 20px;">Loading crew...</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script src="/js/api.js"></script>
+  <script src="/js/toast.js"></script>
+  
+  <script src="/js/transitions.js"></script>
+  <script src="/js/utils.js"></script>
+  
+  <script>
+    const urlParams = new URLSearchParams(window.location.search);
+    const eventId = urlParams.get('id');
+
+    function toggleModal(id, show) {
+      document.getElementById(id).classList.toggle('open', show);
+      if(show && id === 'outward-modal') {
+        document.getElementById('item-search').value = '';
+        document.getElementById('item_id').value = '';
+        document.getElementById('assign_quantity').value = '';
+      }
+    }
+
+    function openReturnModal(itemId, itemName, currentAssigned) {
+      document.getElementById('return_item_id').value = itemId;
+      document.getElementById('return_item_name').value = itemName;
+      document.getElementById('return_current_assigned').value = currentAssigned;
+      document.getElementById('return_quantity').value = currentAssigned;
+      document.getElementById('missing_quantity').value = 0;
+      toggleModal('inward-modal', true);
+    }
+
+    async function loadWorkspace() {
+      if (!eventId) return window.location.href = '/pages/events.html';
+      try {
+        const ev = await window.api.get(`/api/events/${eventId}`);
+        
+        document.getElementById('event-name').textContent = ev.event_name;
+        document.getElementById('event-subtext').textContent = `${ev.client_company} â€¢ ${ev.place} â€¢ ${window.formatDateISTOnly(ev.event_date)}`;
+        
+        const statusSelect = document.getElementById('status-select');
+        statusSelect.value = ev.status;
+        
+        // Disable return buttons if event is totally closed, logic applies
+        
+        if (window.currentUser && window.currentUser.role === 'admin') {
+          const btn = document.getElementById('download-pdf-btn');
+          btn.classList.remove('hidden');
+          btn.onclick = () => window.open(`/api/events/${eventId}/challan/pdf`, '_blank');
+        }
+
+        renderEquipment(ev.items || []);
+        renderWorkers(ev.workers || []);
+
+      } catch (err) {
+        window.showToast('Failed to load workspace', 'error');
+      }
+    }
+
+    function renderEquipment(items) {
+      const container = document.getElementById('equipment-list');
+      container.innerHTML = '';
+      if(items.length === 0) return container.innerHTML = '<div class="text-muted text-center" style="margin-top: 50px;">No equipment assigned yet.</div>';
+
+      items.forEach(it => {
+        const remaining = it.quantity_assigned - it.quantity_returned - it.quantity_missing;
+        const isFullyReturned = remaining === 0;
+        
+        let classStr = 'list-item';
+        if (isFullyReturned) classStr += ' returned';
+        if (it.quantity_missing > 0 && isFullyReturned) classStr = 'list-item missing';
+
+        let actionHtml = '';
+        if (!isFullyReturned) {
+          actionHtml = `<button class="btn btn-outline" style="padding:4px 8px; font-size:12px;" onclick="openReturnModal('${it.item_id}', '${it.item_name}', ${remaining})">Return</button>`;
+        }
+
+        container.innerHTML += `
+          <div class="${classStr}">
+            <div>
+              <div style="font-weight:bold; font-size:14px;">${it.item_name}</div>
+              <div style="font-size:12px; color:var(--text-muted); margin-top:2px;">
+                Assigned: ${it.quantity_assigned} | Ret: ${it.quantity_returned} ${it.quantity_missing > 0 ? '| Miss: '+it.quantity_missing : ''}
+              </div>
+            </div>
+            <div>
+              ${actionHtml}
+            </div>
+          </div>
+        `;
+      });
+    }
+
+    function renderWorkers(workers) {
+      const container = document.getElementById('workers-list');
+      container.innerHTML = '';
+      if(workers.length === 0) return container.innerHTML = '<div class="text-muted text-center" style="margin-top: 20px;">No crew assigned.</div>';
+
+      workers.forEach(w => {
+        container.innerHTML += `
+          <div class="list-item">
+            <div>
+              <div style="font-weight:bold; font-size:14px;">${w.name}</div>
+              <div style="font-size:12px; color:var(--text-muted);">${w.worker_code} â€¢ ${w.worker_type}</div>
+            </div>
+          </div>
+        `;
+      });
+    }
+
+    // Dropdown helper
+    function setupSearchDropdown(inputId, hiddenId, dropdownId, endpoint, mapFn) {
+      const input = document.getElementById(inputId);
+      const hidden = document.getElementById(hiddenId);
+      const dd = document.getElementById(dropdownId);
+      
+      const searchFn = window.debounce(async () => {
+        if(input.value.length < 2) { dd.style.display = 'none'; return; }
+        try {
+          const res = await window.api.get(`${endpoint}?q=${encodeURIComponent(input.value)}`);
+          dd.innerHTML = '';
+          if(res.data.length === 0) {
+            dd.innerHTML = '<div style="padding:10px; color:var(--text-muted);">No results</div>';
+          } else {
+            res.data.forEach(item => {
+              const div = document.createElement('div');
+              div.style.padding = '10px'; div.style.cursor = 'pointer';
+              div.style.borderBottom = '1px solid var(--border)';
+              div.textContent = mapFn(item).label;
+              div.onclick = () => {
+                input.value = mapFn(item).label;
+                hidden.value = mapFn(item).val;
+                dd.style.display = 'none';
+              };
+              div.onmouseenter = () => div.style.background = 'var(--surface)';
+              div.onmouseleave = () => div.style.background = 'transparent';
+              dd.appendChild(div);
+            });
+          }
+          dd.style.display = 'block';
+        } catch(err) { console.error(err); }
+      }, 350);
+
+      input.addEventListener('input', searchFn);
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      loadWorkspace();
+      setupSearchDropdown('item-search', 'item_id', 'item-dropdown', '/api/items/search', i => ({label: `${i.name} (${i.available_quantity} ${i.unit} avl)`, val: i.item_id}));
+      setupSearchDropdown('worker-search', 'worker_id', 'worker-dropdown', '/api/workers/search', w => ({label: `${w.name} (${w.worker_code})`, val: w.worker_id}));
+
+      // Update Status
+      document.getElementById('status-select').addEventListener('change', async (e) => {
+        try {
+          await window.api.patch(`/api/events/${eventId}/status`, { status: e.target.value });
+          window.showToast('Event status updated (Crew returned to Godown automatically if Closed)');
+          loadWorkspace();
+        } catch (err) {
+          window.showToast(err.message, 'error');
+          loadWorkspace(); // revert UI
+        }
+      });
+
+      // Assign Item (Outward)
+      document.getElementById('outward-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const btn = document.getElementById('submit-item-btn');
+        try {
+          btn.classList.add('loading');
+          await window.api.post(`/api/events/${eventId}/assign-stock`, {
+            item_id: document.getElementById('item_id').value,
+            quantity: parseInt(document.getElementById('assign_quantity').value)
+          });
+          window.showToast('Assigned equipment successfully');
+          toggleModal('outward-modal', false);
+          loadWorkspace();
+        } catch(err) { window.showToast(err.message, 'error'); }
+        finally { btn.classList.remove('loading'); }
+      });
+
+      // Return Item (Inward)
+      document.getElementById('inward-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const btn = document.getElementById('submit-return-btn');
+        try {
+          btn.classList.add('loading');
+          await window.api.post(`/api/events/${eventId}/return-stock`, {
+            item_id: document.getElementById('return_item_id').value,
+            quantity_returned: parseInt(document.getElementById('return_quantity').value),
+            quantity_missing: parseInt(document.getElementById('missing_quantity').value)
+          });
+          window.showToast('Return logged successfully');
+          toggleModal('inward-modal', false);
+          loadWorkspace();
+        } catch(err) { window.showToast(err.message, 'error'); }
+        finally { btn.classList.remove('loading'); }
+      });
+
+      // Assign Worker
+      document.getElementById('worker-assign-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const btn = document.getElementById('submit-worker-btn');
+        const workerId = document.getElementById('worker_id').value;
+        if(!workerId) return window.showToast('Please select a worker', 'error');
+
+        try {
+          btn.classList.add('loading');
+          await window.api.post(`/api/events/${eventId}/assign-worker`, {
+            worker_id: workerId
+          });
+          window.showToast('Worker assigned successfully');
+          document.getElementById('worker-search').value = '';
+          document.getElementById('worker_id').value = '';
+          loadWorkspace();
+        } catch(err) { window.showToast(err.message, 'error'); }
+        finally { btn.classList.remove('loading'); }
+      });
+
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>My Profile - Team Current</title>
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/css/main.css">
+  <link rel="stylesheet" href="/css/animations.css">
+  <script src="/js/auth-guard.js"></script>
+</head>
+<body>
+  <div class="page-overlay"><div class="page-overlay-line"></div></div>
+
+  <div class="app-container">
+    <aside class="sidebar sidebar-enter">
+      <div class="sidebar-header"><div class="logo-badge">TC</div><div class="brand-name">CURRENT</div></div>
+      <nav class="nav-menu">
+        <a href="/pages/dashboard.html" class="nav-item">Dashboard</a>
+        <a href="/pages/inventory.html" class="nav-item">Inventory</a>
+        <a href="/pages/purchases.html" class="nav-item">Purchases</a>
+        <a href="/pages/events.html" class="nav-item">Events</a>
+        <a href="/pages/workers.html" class="nav-item admin-only">Workers & Attendance</a>
+        <a href="/pages/users.html" class="nav-item admin-only">User Management</a>
+        <a href="javascript:void(0)" id="sidebar-logout-btn" class="nav-item" style="margin-top:auto; color:var(--danger); border-top:1px solid var(--border);">Log Out</a>
+      </nav>
+      <div class="sidebar-footer">
+        <svg class="truss-accent" viewBox="0 0 100 40"><path d="M0,40 L20,0 L40,40 M20,0 L100,0 M40,40 L100,40 M20,0 L40,40 M40,0 L60,40 M60,0 L80,40 M80,0 L100,40"/></svg>
+      </div>
+    </aside>
+
+    <main class="main-content">
+      <header class="header header-enter">
+        <h1 class="header-title">My Profile</h1>
+        <a href="/pages/profile.html" class="text-right" style="cursor:pointer; display:block; text-decoration:none;">
+          <div id="header-user-name" style="font-weight: 500; font-size: 14px; color:var(--white);">-</div>
+          <div id="header-user-role" class="role-chip" style="margin-top: 4px;">-</div>
+        </a>
+      </header>
+
+      <div class="stagger-in" style="--i:1; max-width: 600px; margin: 0 auto; width: 100%;">
+        <div class="card" style="padding: 40px; text-align: center;">
+          <div style="width: 100px; height: 100px; background: rgba(245,166,35,0.1); border: 2px solid var(--amber); border-radius: 50%; margin: 0 auto 20px; display: flex; align-items: center; justify-content: center;">
+            <svg viewBox="0 0 24 24" style="width: 50px; height: 50px; fill: var(--amber);"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
+          </div>
+          <h2 id="profile-name" style="font-size: 28px; margin-bottom: 8px;">Loading...</h2>
+          <div id="profile-role" class="role-chip" style="display: inline-block; margin-bottom: 30px;">-</div>
+
+          <div style="text-align: left; background: var(--surface-2); padding: 20px; border-radius: 8px; border: 1px solid var(--border);">
+            <div style="display: flex; justify-content: space-between; border-bottom: 1px solid var(--border); padding-bottom: 12px; margin-bottom: 12px;">
+              <span style="color: var(--text-muted); font-size: 13px;">Email Address</span>
+              <span id="profile-email" style="font-weight: 500;">-</span>
+            </div>
+            <div style="display: flex; justify-content: space-between; border-bottom: 1px solid var(--border); padding-bottom: 12px; margin-bottom: 12px;">
+              <span style="color: var(--text-muted); font-size: 13px;">Account Status</span>
+              <span class="badge badge-ongoing">Active</span>
+            </div>
+            <div style="display: flex; justify-content: space-between;">
+              <span style="color: var(--text-muted); font-size: 13px;">System ID</span>
+              <span id="profile-id" style="font-size: 12px; font-family: monospace; color: var(--text-muted);">...</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script src="/js/api.js"></script>
+  <script src="/js/toast.js"></script>
+  <script src="/js/transitions.js"></script>
+  <script src="/js/utils.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      // Check auth guard variables dynamically since it's already fetched
+      const checkUser = setInterval(() => {
+        if(window.currentUser) {
+          clearInterval(checkUser);
+          document.getElementById('profile-name').textContent = window.currentUser.name;
+          document.getElementById('profile-role').textContent = window.currentUser.role;
+          document.getElementById('profile-email').textContent = window.currentUser.email || 'N/A';
+          document.getElementById('profile-id').textContent = window.currentUser.id;
+        }
+      }, 50);
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,126 @@
+/* GLOBAL BACKGROUND GLOW */
+.global-spotlight {
+  position: fixed; z-index: 0; pointer-events: none;
+  top: 0; left: 0; width: 100vw; height: 100vh;
+  background: radial-gradient(ellipse 600px 400px at 10% 20%, rgba(245,166,35,0.04) 0%, transparent 70%);
+  animation: driftGlow 20s infinite alternate linear;
+  will-change: transform;
+}
+@keyframes driftGlow {
+  0% { transform: translate(0, 0); }
+  100% { transform: translate(20%, 5%); }
+}
+
+/* PAGE LOAD ANIMATION SEQUENCE */
+.page-overlay {
+  position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+  background: var(--navy); z-index: 9999;
+  display: flex; justify-content: center; align-items: center;
+  animation: liftOverlay 0.4s cubic-bezier(0.16,1,0.3,1) 0.6s forwards;
+}
+.page-overlay-line {
+  width: 0; height: 2px; background: var(--amber);
+  animation: pulseLine 0.5s ease 0.1s forwards;
+}
+
+@keyframes pulseLine {
+  0% { width: 0; opacity: 1; }
+  50% { width: 100px; opacity: 1; box-shadow: 0 0 20px var(--amber); }
+  100% { width: 0; opacity: 0; }
+}
+@keyframes liftOverlay {
+  to { transform: translateY(-100%); opacity: 0; pointer-events: none; }
+}
+
+body.page-exit .page-overlay {
+  transform: translateY(0);
+  opacity: 1;
+  pointer-events: all;
+  animation: dropOverlay 0.3s cubic-bezier(0.16,1,0.3,1) forwards;
+}
+@keyframes dropOverlay {
+  from { transform: translateY(-100%); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+/* STAGGER IN FOR CONTENT */
+.stagger-in {
+  opacity: 0; transform: translateY(24px);
+  animation: fadeUp 0.4s cubic-bezier(0.16,1,0.3,1) forwards;
+  animation-delay: calc(var(--i, 0) * 60ms);
+}
+@keyframes fadeUp {
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.sidebar-enter {
+  animation: slideinLeft 0.35s cubic-bezier(0.16,1,0.3,1) 0.15s forwards;
+}
+@keyframes slideinLeft { to { transform: translateX(0); } }
+
+.header-enter {
+  opacity: 0; transform: translateY(-20px);
+  animation: dropin 0.3s cubic-bezier(0.16,1,0.3,1) 0.25s forwards;
+}
+@keyframes dropin {
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* LOADING SHIMMER SKELETON */
+.skeleton {
+  background: linear-gradient(90deg, #112236 25%, #1A3048 50%, #112236 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.4s infinite;
+  border-radius: 4px; color: transparent !important;
+  pointer-events: none;
+}
+.skeleton * { visibility: hidden; }
+@keyframes shimmer {
+  to { background-position: -200% 0; }
+}
+
+/* BUTTON LOADING STATE */
+.btn.loading {
+  position: relative; color: transparent !important; pointer-events: none;
+}
+.btn.loading::after {
+  content: '•••'; position: absolute; left: 50%; top: 50%;
+  transform: translate(-50%, -50%); color: var(--navy);
+  font-size: 20px; letter-spacing: 2px;
+  animation: dotPulse 1s infinite;
+}
+@keyframes dotPulse {
+  0%,100% { opacity: 0.3; } 50% { opacity: 1; }
+}
+
+/* FORM ERROR SHAKE */
+.shake { animation: shake 0.4s cubic-bezier(.36,.07,.19,.97) both; }
+@keyframes shake {
+  0%,100%{transform: translateX(0)} 
+  25%{transform: translateX(-6px)} 
+  75%{transform: translateX(6px)}
+}
+
+/* STATUS BADGE PULSE */
+.badge-pulse { position: relative; overflow: hidden; }
+.badge-pulse::before {
+  content: ''; position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+  background: inherit; filter: brightness(1.5); opacity: 0;
+  animation: badgeGlow 3s infinite;
+}
+@keyframes badgeGlow {
+  0%, 100% { opacity: 0; } 50% { opacity: 0.3; }
+}
+
+/* TOAST ANIMATIONS */
+.toast-container { position: fixed; top: 20px; right: 20px; z-index: 10000; display: flex; flex-direction: column; gap: 10px; }
+.toast {
+  background: var(--surface-2); border: 1px solid var(--border); color: var(--white);
+  padding: 16px 20px; border-radius: 4px; font-size: 14px;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+  transform: translateX(120%); transition: transform 0.3s cubic-bezier(0.16,1,0.3,1), opacity 0.3s;
+}
+.toast.toast-show { transform: translateX(0); }
+.toast.toast-hide { transform: translateX(120%); opacity: 0; }
+.toast-success { border-left: 3px solid var(--success); }
+.toast-error { border-left: 3px solid var(--danger); }

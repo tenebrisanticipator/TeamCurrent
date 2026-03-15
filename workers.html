@@ -1,0 +1,229 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Workers & Attendance - Team Current</title>
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/css/main.css">
+  <link rel="stylesheet" href="/css/animations.css">
+  <script src="/js/auth-guard.js"></script>
+</head>
+<body>
+  <div class="page-overlay"><div class="page-overlay-line"></div></div>
+
+  <!-- Add Worker Modal -->
+  <div class="modal-backdrop" id="worker-modal" onclick="if(event.target===this) toggleModal('worker-modal', false)">
+    <div class="modal-card">
+      <h3 class="card-title" style="color:var(--white); font-size:20px;">Onboard New Worker</h3>
+      <form id="worker-form" class="mt-20">
+        <div class="form-group">
+          <label>Full Name</label>
+          <input type="text" id="name" class="form-control" required>
+        </div>
+        <div class="flex gap-10">
+          <div class="form-group" style="flex:1;">
+            <label>Roles / Duty Type</label>
+            <input type="text" id="worker_type" class="form-control" placeholder="e.g. Rigger, Tech..." required>
+          </div>
+          <div class="form-group" style="flex:1;">
+            <label>Daily Wage Base (â‚¹)</label>
+            <input type="number" id="daily_wage_base" class="form-control" min="0">
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Phone Number</label>
+          <input type="text" id="phone" class="form-control" required>
+        </div>
+        <div class="form-group mb-20">
+          <label>Aadhaar Card (12 Digits) - Will be stored encrypted</label>
+          <input type="text" id="aadhaar_number" class="form-control" pattern="^[0-9]{12}$" placeholder="0000 0000 0000" required>
+        </div>
+        <div class="flex gap-10 mt-20">
+          <button type="submit" class="btn btn-primary" id="submit-btn" style="flex:1;">Register Worker</button>
+          <button type="button" class="btn btn-outline" onclick="toggleModal('worker-modal', false)" style="flex:1;">Cancel</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div class="app-container">
+    <aside class="sidebar sidebar-enter">
+      <div class="sidebar-header"><div class="logo-badge">TC</div><div class="brand-name">CURRENT</div></div>
+      <nav class="nav-menu">
+        <a href="/pages/dashboard.html" class="nav-item">Dashboard</a>
+        <a href="/pages/inventory.html" class="nav-item">Inventory</a>
+        <a href="/pages/purchases.html" class="nav-item">Purchases</a>
+        <a href="/pages/events.html" class="nav-item">Events</a>
+        <a href="/pages/workers.html" class="nav-item active admin-only">Workers & Attendance</a>
+        <a href="/pages/users.html" class="nav-item admin-only">User Management</a>
+      <a href="javascript:void(0)" id="sidebar-logout-btn" class="nav-item" style="margin-top:auto; color:var(--danger); border-top:1px solid var(--border);">Log Out</a>
+      </nav>
+      <div class="sidebar-footer">
+        <svg class="truss-accent" viewBox="0 0 100 40"><path d="M0,40 L20,0 L40,40 M20,0 L100,0 M40,40 L100,40 M20,0 L40,40 M40,0 L60,40 M60,0 L80,40 M80,0 L100,40"/></svg>
+      </div>
+    </aside>
+
+    <main class="main-content">
+      <header class="header header-enter">
+        <h1 class="header-title">Workers Roster</h1>
+        <div class="user-info">
+          <a href="/pages/profile.html" class="text-right" style="cursor:pointer;">
+            <div id="header-user-name" style="font-weight: 500; font-size: 14px;">-</div>
+            <div id="header-user-role" class="role-chip" style="margin-top: 4px;">-</div>
+          </a>
+          
+        </div>
+      </header>
+
+      <div class="stagger-in" style="--i:1">
+        <div class="flex justify-between items-center mb-20">
+          <div class="flex gap-10">
+            <input type="text" id="search-input" class="form-control" style="width: 250px;" placeholder="Search name/code/phone...">
+          </div>
+          <button class="btn btn-primary" onclick="toggleModal('worker-modal', true)">+ Add Worker</button>
+        </div>
+
+        <div class="table-container">
+          <table>
+            <thead>
+              <tr>
+                <th>Code</th>
+                <th>Name / Type</th>
+                <th>Contact</th>
+                <th>Current Status</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="table-body"></tbody>
+          </table>
+        </div>
+        <div id="pagination-container"></div>
+      </div>
+    </main>
+  </div>
+
+  <script src="/js/api.js"></script>
+  <script src="/js/toast.js"></script>
+  
+  <script src="/js/transitions.js"></script>
+  <script src="/js/skeleton.js"></script>
+  <script src="/js/utils.js"></script>
+  <script src="/js/pagination.js"></script>
+  
+  <script>
+    let currentSearch = '';
+
+    function toggleModal(id, show) {
+      document.getElementById(id).classList.toggle('open', show);
+    }
+
+    async function loadData(cursor = null) {
+      document.getElementById('table-body').innerHTML = '';
+      window.renderSkeletonRows('table-body', 5, 5);
+
+      try {
+        let url = `/api/workers?limit=20`;
+        if (cursor) url += `&cursor=${encodeURIComponent(cursor)}`;
+        if (currentSearch) url += `&search=${encodeURIComponent(currentSearch)}`;
+
+        const res = await window.api.get(url);
+        renderTable(res.data);
+        window.renderPagination('pagination-container', res, loadData);
+      } catch (err) {
+        window.showToast(err.message, 'error');
+        document.getElementById('table-body').innerHTML = `<tr><td colspan="5" class="text-center text-muted">Failed to load data</td></tr>`;
+      }
+    }
+
+    function renderTable(data) {
+      const tbody = document.getElementById('table-body');
+      tbody.innerHTML = '';
+      if (data.length === 0) return tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding: 40px;">No workers found.</td></tr>`;
+
+      data.forEach((w, index) => {
+        const tr = document.createElement('tr');
+        tr.className = 'stagger-in';
+        tr.style.setProperty('--i', `${index}`);
+        
+        tr.innerHTML = `
+          <td><span class="badge" style="background:var(--surface-2);">${w.worker_code}</span></td>
+          <td>
+            <div style="font-weight: 500;">${w.name}</div>
+            <div style="font-size: 12px; color: var(--text-muted);">${w.worker_type}</div>
+          </td>
+          <td>
+            <div style="font-size: 14px;">${w.phone}</div>
+            <div style="font-size: 11px; color: var(--text-muted); cursor:pointer;" onclick="revealAadhaar('${w.worker_id}')" id="aadhaar-${w.worker_id}">[Show Aadhaar]</div>
+          </td>
+          <td>
+            ${w.current_event_id ? 
+              `<span class="badge badge-ongoing">On Duty</span>` : 
+              `<span class="badge" style="background:var(--surface-2);">Godown / Free</span>`}
+          </td>
+          <td>
+            <div class="flex gap-10">
+              <button class="btn btn-outline" style="padding: 4px 8px; font-size:12px;" onclick="downloadAttendance('${w.worker_id}')">Attendance PDF</button>
+            </div>
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+      window.checkRoleAccess();
+    }
+
+    async function revealAadhaar(id) {
+      try {
+        const res = await window.api.get(`/api/workers/${id}`);
+        document.getElementById(`aadhaar-${id}`).textContent = `Aadhaar: ${res.aadhaar_number}`;
+      } catch(err) { window.showToast(err.message, 'error'); }
+    }
+
+    function downloadAttendance(id) {
+      // Prompt for current month
+      const d = new Date();
+      const monthStr = prompt('Enter month (YYYY-MM)', `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`);
+      if(!monthStr) return;
+      window.open(`/api/workers/${id}/attendance/pdf?month=${monthStr}`, '_blank');
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      loadData(null);
+
+      const searchInput = document.getElementById('search-input');
+      const handleSearch = window.debounce(() => {
+        currentSearch = searchInput.value.trim();
+        window.resetPagination();
+        loadData(null);
+      }, 350);
+      searchInput.addEventListener('input', handleSearch);
+
+      document.getElementById('worker-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const btn = document.getElementById('submit-btn');
+        try {
+          btn.classList.add('loading');
+          
+          let aadhaar = document.getElementById('aadhaar_number').value.replace(/s/g, '');
+          
+          await window.api.post('/api/workers', {
+            name: document.getElementById('name').value,
+            worker_type: document.getElementById('worker_type').value,
+            phone: document.getElementById('phone').value,
+            aadhaar_number: aadhaar,
+            daily_wage_base: document.getElementById('daily_wage_base').value || 0
+          });
+          window.showToast('Worker created successfully!');
+          toggleModal('worker-modal', false);
+          document.getElementById('worker-form').reset();
+          window.resetPagination();
+          loadData(null);
+        } catch (err) {
+          window.showToast(err.message, 'error');
+        } finally {
+          btn.classList.remove('loading');
+        }
+      });
+    });
+  </script>
+</body>
+</html>

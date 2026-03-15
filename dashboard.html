@@ -1,0 +1,126 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <title>Dashboard - Team Current</title>
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/css/main.css">
+  <link rel="stylesheet" href="/css/animations.css">
+  <script src="/js/auth-guard.js"></script>
+</head>
+
+<body>
+  <div class="page-overlay">
+    <div class="page-overlay-line"></div>
+  </div>
+
+  <div class="app-container">
+    <!-- SIDEBAR -->
+    <aside class="sidebar sidebar-enter">
+      <div class="sidebar-header">
+        <div class="logo-badge">TC</div>
+        <div class="brand-name">TEAM CURRENT</div>
+      </div>
+      <nav class="nav-menu">
+        <a href="/pages/dashboard.html" class="nav-item active">Dashboard</a>
+        <a href="/pages/inventory.html" class="nav-item">Inventory</a>
+        <a href="/pages/purchases.html" class="nav-item">Purchases</a>
+        <a href="/pages/events.html" class="nav-item">Events</a>
+        <a href="/pages/workers.html" class="nav-item admin-only">Workers & Attendance</a>
+        <a href="/pages/users.html" class="nav-item admin-only">User Management</a>
+      <a href="javascript:void(0)" id="sidebar-logout-btn" class="nav-item" style="margin-top:auto; color:var(--danger); border-top:1px solid var(--border);">Log Out</a>
+      </nav>
+      <div class="sidebar-footer">
+        <!-- SVG Lighting Truss Outline -->
+        <svg class="truss-accent" viewBox="0 0 100 40">
+          <path
+            d="M0,40 L20,0 L40,40 M20,0 L100,0 M40,40 L100,40 M20,0 L40,40 M40,0 L60,40 M60,0 L80,40 M80,0 L100,40" />
+        </svg>
+      </div>
+    </aside>
+
+    <!-- MAIN CONTENT -->
+    <main class="main-content">
+      <header class="header header-enter">
+        <h1 class="header-title">Dashboard</h1>
+        <div class="user-info">
+          <a href="/pages/profile.html" class="text-right" style="cursor:pointer;">
+            <div id="header-user-name" style="font-weight: 500; font-size: 14px;">-</div>
+            <div id="header-user-role" class="role-chip" style="margin-top: 4px;">-</div>
+          </a>
+          
+        </div>
+      </header>
+
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 24px;">
+
+        <!-- CARD 1 -->
+        <div class="card stagger-in" style="--i:1">
+          <svg class="card-bg-icon" viewBox="0 0 24 24">
+            <path
+              d="M21 16.5c0 .38-.21.71-.53.88l-7.9 4.44c-.16.12-.36.18-.57.18-.21 0-.41-.06-.57-.18l-7.9-4.44A.991.991 0 013 16.5v-9c0-.38.21-.71.53-.88l7.9-4.44c.16-.12.36-.18.57-.18.21 0 .41.06.57.18l7.9 4.44c.32.17.53.5.53.88v9zM12 4.15L5.6 7.7 12 11.25l6.4-3.55L12 4.15z" />
+          </svg>
+          <div class="card-title">Total Active Items</div>
+          <div class="stat-number" id="stat-items">
+            <div class="skeleton" style="height: 48px; width: 60px;"></div>
+          </div>
+        </div>
+
+        <!-- CARD 2 -->
+        <div class="card stagger-in" style="--i:2">
+          <svg class="card-bg-icon" viewBox="0 0 24 24">
+            <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V5h14v14z" />
+          </svg>
+          <div class="card-title">Ongoing Events</div>
+          <div class="stat-number" id="stat-events">
+            <div class="skeleton" style="height: 48px; width: 60px;"></div>
+          </div>
+        </div>
+
+        <!-- CARD 3 -->
+        <div class="card stagger-in" style="--i:3">
+          <svg class="card-bg-icon" viewBox="0 0 24 24">
+            <path
+              d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z" />
+          </svg>
+          <div class="card-title admin-only">Active Workers</div>
+          <div class="stat-number admin-only" id="stat-workers">
+            <div class="skeleton" style="height: 48px; width: 60px;"></div>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script src="/js/api.js"></script>
+  <script src="/js/toast.js"></script>
+  
+  <script src="/js/transitions.js"></script>
+  <script src="/js/utils.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', async () => {
+      try {
+        // Fetch raw counts via limits mostly just as a quick hack for dashboard. 
+        // In a real app we'd have a /api/stats endpoint, but we can reuse list endpoints with limit=1.
+
+        const itemsRes = await window.api.get('/api/items?limit=1');
+        document.getElementById('stat-items').textContent = itemsRes.totalCount || 0;
+
+        const eventsRes = await window.api.get('/api/events?limit=100'); // small limit, just count ongoing
+        const ongoing = (eventsRes.data || []).filter(e => e.status === 'ongoing').length;
+        document.getElementById('stat-events').textContent = ongoing;
+
+        if (window.currentUser && window.currentUser.role === 'admin') {
+          const workersRes = await window.api.get('/api/workers?limit=1');
+          document.getElementById('stat-workers').textContent = workersRes.totalCount || 0;
+        }
+
+      } catch (err) {
+        window.showToast('Failed to load dashboard stats', 'error');
+      }
+    });
+  </script>
+</body>
+
+</html>

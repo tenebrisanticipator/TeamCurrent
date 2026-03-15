@@ -1,0 +1,121 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Purchase Detail - Team Current</title>
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/css/main.css">
+  <link rel="stylesheet" href="/css/animations.css">
+  <script src="/js/auth-guard.js"></script>
+</head>
+<body>
+  <div class="page-overlay"><div class="page-overlay-line"></div></div>
+  <div class="app-container">
+    <aside class="sidebar sidebar-enter">
+      <div class="sidebar-header"><div class="logo-badge">TC</div><div class="brand-name">CURRENT</div></div>
+      <nav class="nav-menu">
+        <a href="/pages/dashboard.html" class="nav-item">Dashboard</a>
+        <a href="/pages/inventory.html" class="nav-item">Inventory</a>
+        <a href="/pages/purchases.html" class="nav-item active">Purchases</a>
+      <a href="javascript:void(0)" id="sidebar-logout-btn" class="nav-item" style="margin-top:auto; color:var(--danger); border-top:1px solid var(--border);">Log Out</a>
+      </nav>
+    </aside>
+    <main class="main-content">
+      <header class="header header-enter">
+        <h1 class="header-title">Purchase Details</h1>
+        <div class="user-info">
+          <a href="/pages/purchases.html" class="btn btn-outline" style="padding: 6px 12px;">Back</a>
+          <button id="download-pdf-btn" class="btn btn-primary admin-only ml-10 hidden">Download PO (PDF)</button>
+        </div>
+      </header>
+
+      <div class="card stagger-in" style="max-width: 800px; --i:1;">
+        <div id="detail-content">
+          <div class="flex justify-between items-center mb-20" style="border-bottom: 1px solid var(--border); padding-bottom: 20px;">
+            <div>
+              <div class="card-title" style="margin-bottom: 4px;">Purchase ID</div>
+              <div class="font-heading" style="font-size: 24px; color: var(--amber);" id="purchase-id">-</div>
+            </div>
+            <a href="/pages/profile.html" class="text-right" style="cursor:pointer;">
+              <div class="card-title" style="margin-bottom: 4px;">Date</div>
+              <div style="font-size: 16px; color: var(--white);" id="purchase-date">-</div>
+            </div>
+          </div>
+
+          <div class="flex gap-20 mb-20">
+            <div class="card" style="flex:1; background: var(--surface-2); padding: 15px;">
+              <h4 style="color:var(--text-muted); margin-bottom: 10px;">Item Information</h4>
+              <div style="font-weight:bold; font-size:18px; margin-bottom: 5px;" id="item-name">-</div>
+              <div style="color:var(--amber); font-size:16px;">Quantity: <span id="item-qty">-</span></div>
+            </div>
+            
+            <div class="card" style="flex:1; background: var(--surface-2); padding: 15px;">
+              <h4 style="color:var(--text-muted); margin-bottom: 10px;">Supplier Information</h4>
+              <div style="font-weight:bold; font-size:18px; margin-bottom: 5px;" id="supplier-name">-</div>
+              <div id="supplier-contact" style="font-size: 13px; color: var(--text-muted);">-</div>
+            </div>
+          </div>
+
+          <div>
+            <h4 style="color:var(--text-muted); margin-bottom: 10px;">Additional Notes</h4>
+            <div class="card" style="background: rgba(0,0,0,0.2); border: none; padding: 15px; font-size: 14px;" id="purchase-notes">
+              No notes provided.
+            </div>
+          </div>
+          
+          <div style="margin-top:20px; text-align:right; font-size:12px; color:var(--text-muted);">
+            Added by <span id="added-by">-</span> 
+            on <span id="created-at">-</span>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script src="/js/api.js"></script>
+  <script src="/js/toast.js"></script>
+  
+  <script src="/js/transitions.js"></script>
+  <script src="/js/utils.js"></script>
+  <script>
+    const urlParams = new URLSearchParams(window.location.search);
+    const id = urlParams.get('id');
+
+    document.addEventListener('DOMContentLoaded', async () => {
+      if (!id) return window.location.href = '/pages/purchases.html';
+      
+      try {
+        const p = await window.api.get(`/api/purchases/${id}`);
+        
+        document.getElementById('purchase-id').textContent = p.purchase_id.split('-')[0].toUpperCase();
+        document.getElementById('purchase-date').textContent = window.formatDateISTOnly(p.purchase_date);
+        
+        document.getElementById('item-name').textContent = p.item_name;
+        document.getElementById('item-qty').textContent = '+' + p.quantity;
+        
+        document.getElementById('supplier-name').textContent = p.supplier_name;
+        document.getElementById('supplier-contact').innerHTML = `
+          ${p.contact_person ? 'Contact: ' + p.contact_person + '<br>' : ''}
+          ${p.phone ? 'Phone: ' + p.phone : ''}
+        `;
+        
+        if (p.notes) document.getElementById('purchase-notes').textContent = p.notes;
+        
+        document.getElementById('added-by').textContent = p.added_by_name || 'System Admin';
+        document.getElementById('created-at').textContent = window.formatDateIST(p.created_at);
+
+        if (window.currentUser && window.currentUser.role === 'admin') {
+          const btn = document.getElementById('download-pdf-btn');
+          btn.classList.remove('hidden');
+          btn.addEventListener('click', () => {
+             // Let browser download the PDF via a standard href navigational approach (best for files)
+             window.open(`/api/purchases/${id}/pdf`, '_blank');
+          });
+        }
+      } catch (err) {
+        window.showToast('Failed to load purchase details', 'error');
+      }
+    });
+  </script>
+</body>
+</html>

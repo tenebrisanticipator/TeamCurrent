@@ -1,0 +1,234 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Events - Team Current</title>
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/css/main.css">
+  <link rel="stylesheet" href="/css/animations.css">
+  <script src="/js/auth-guard.js"></script>
+</head>
+<body>
+  <div class="page-overlay"><div class="page-overlay-line"></div></div>
+
+  <!-- Add Event Modal -->
+  <div class="modal-backdrop" id="event-modal" onclick="if(event.target===this) toggleModal('event-modal', false)">
+    <div class="modal-card">
+      <h3 class="card-title" style="color:var(--white); font-size:20px;">Schedule New Event</h3>
+      <form id="event-form" class="mt-20">
+        <div class="form-group">
+          <label>Event Name</label>
+          <input type="text" id="event_name" class="form-control" required>
+        </div>
+        
+        <div class="form-group">
+          <label>Company / Client Name</label>
+          <input type="text" id="client_company" class="form-control" required>
+        </div>
+
+        <div class="form-group">
+          <label>Venue / Place</label>
+          <input type="text" id="place" class="form-control" required>
+        </div>
+
+        <div class="flex gap-10">
+          <div class="form-group" style="flex:1;">
+            <label>Start Date</label>
+            <input type="date" id="event_date" class="form-control" required>
+          </div>
+          <div class="form-group" style="flex:1;">
+            <label>Start Time</label>
+            <input type="time" id="event_time" class="form-control">
+          </div>
+        </div>
+        
+        <div class="flex gap-10">
+          <div class="form-group" style="flex:1;">
+            <label>End Date</label>
+            <input type="date" id="end_date" class="form-control">
+          </div>
+          <div class="form-group" style="flex:1;">
+            <label>End Time</label>
+            <input type="time" id="end_time" class="form-control">
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>Client Contact (Email or Phone)</label>
+          <input type="text" id="client_contact" class="form-control" required>
+        </div>
+
+        <div class="flex gap-10" style="margin-top:20px;">
+          <button type="submit" class="btn btn-primary" id="submit-btn" style="flex:1;">Create Event</button>
+          <button type="button" class="btn btn-outline" onclick="toggleModal('event-modal', false)" style="flex:1;">Cancel</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div class="app-container">
+    <aside class="sidebar sidebar-enter">
+      <div class="sidebar-header"><div class="logo-badge">TC</div><div class="brand-name">CURRENT</div></div>
+      <nav class="nav-menu">
+        <a href="/pages/dashboard.html" class="nav-item">Dashboard</a>
+        <a href="/pages/inventory.html" class="nav-item">Inventory</a>
+        <a href="/pages/purchases.html" class="nav-item">Purchases</a>
+        <a href="/pages/events.html" class="nav-item active">Events</a>
+        <a href="/pages/workers.html" class="nav-item admin-only">Workers & Attendance</a>
+        <a href="/pages/users.html" class="nav-item admin-only">User Management</a>
+      <a href="javascript:void(0)" id="sidebar-logout-btn" class="nav-item" style="margin-top:auto; color:var(--danger); border-top:1px solid var(--border);">Log Out</a>
+      </nav>
+      <div class="sidebar-footer">
+        <svg class="truss-accent" viewBox="0 0 100 40"><path d="M0,40 L20,0 L40,40 M20,0 L100,0 M40,40 L100,40 M20,0 L40,40 M40,0 L60,40 M60,0 L80,40 M80,0 L100,40"/></svg>
+      </div>
+    </aside>
+
+    <main class="main-content">
+      <header class="header header-enter">
+        <h1 class="header-title">Events</h1>
+        <div class="user-info">
+          <a href="/pages/profile.html" class="text-right" style="cursor:pointer;">
+            <div id="header-user-name" style="font-weight: 500; font-size: 14px;">-</div>
+            <div id="header-user-role" class="role-chip" style="margin-top: 4px;">-</div>
+          </a>
+          
+        </div>
+      </header>
+
+      <div class="stagger-in" style="--i:1">
+        <div class="flex justify-between items-center mb-20">
+          <div class="flex gap-10">
+            <select id="status-filter" class="form-control" style="width: 150px;">
+              <option value="">All Statuses</option>
+              <option value="upcoming">Upcoming</option>
+              <option value="ongoing">Ongoing</option>
+              <option value="closed">Closed</option>
+            </select>
+          </div>
+          <button class="btn btn-primary" onclick="toggleModal('event-modal', true)">+ Add Event</button>
+        </div>
+
+        <div class="table-container">
+          <table>
+            <thead>
+              <tr>
+                <th>Event Name</th>
+                <th>Client / Venue</th>
+                <th>Start Date</th>
+                <th>Status</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="table-body"></tbody>
+          </table>
+        </div>
+        <div id="pagination-container"></div>
+      </div>
+    </main>
+  </div>
+
+  <script src="/js/api.js"></script>
+  <script src="/js/toast.js"></script>
+  
+  <script src="/js/transitions.js"></script>
+  <script src="/js/skeleton.js"></script>
+  <script src="/js/utils.js"></script>
+  <script src="/js/pagination.js"></script>
+  
+  <script>
+    let currentStatus = '';
+
+    function toggleModal(id, show) {
+      document.getElementById(id).classList.toggle('open', show);
+      if(show && id === 'event-modal') {
+         document.getElementById('event_date').value = new Date().toISOString().split('T')[0];
+      }
+    }
+
+    async function loadData(cursor = null) {
+      document.getElementById('table-body').innerHTML = '';
+      window.renderSkeletonRows('table-body', 5, 5);
+
+      try {
+        let url = `/api/events?limit=20`;
+        if (cursor) url += `&cursor=${encodeURIComponent(cursor)}`;
+        if (currentStatus) url += `&status=${encodeURIComponent(currentStatus)}`;
+
+        const res = await window.api.get(url);
+        renderTable(res.data);
+        window.renderPagination('pagination-container', res, loadData);
+      } catch (err) {
+        window.showToast(err.message, 'error');
+        document.getElementById('table-body').innerHTML = `<tr><td colspan="5" class="text-center text-muted">Failed to load data</td></tr>`;
+      }
+    }
+
+    function renderTable(data) {
+      const tbody = document.getElementById('table-body');
+      tbody.innerHTML = '';
+      if (data.length === 0) return tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding: 40px;">No events found.</td></tr>`;
+
+      data.forEach((e, index) => {
+        const tr = document.createElement('tr');
+        tr.className = 'stagger-in';
+        tr.style.setProperty('--i', `${index}`);
+        
+        const badgeClass = `badge-${e.status}`;
+
+        tr.innerHTML = `
+          <td style="font-weight: 500;">${e.event_name}</td>
+          <td>
+            <div style="font-size: 14px;">${e.client_company}</div>
+            <div style="font-size: 12px; color: var(--text-muted);">${e.place}</div>
+          </td>
+          <td>
+            <div style="font-size: 14px;">${window.formatDateISTOnly(e.event_date)}</div>
+            <div style="font-size: 12px; color: var(--text-muted);">${e.event_time || ''}</div>
+          </td>
+          <td><span class="badge ${badgeClass}">${e.status.toUpperCase()}</span></td>
+          <td>
+            <a href="/pages/event-detail.html?id=${e.event_id}" class="btn btn-outline" style="padding: 4px 12px; font-size: 12px;">Manage Workspace</a>
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+      window.checkRoleAccess();
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      loadData(null);
+
+      document.getElementById('status-filter').addEventListener('change', (e) => {
+        currentStatus = e.target.value;
+        window.resetPagination();
+        loadData(null);
+      });
+
+      document.getElementById('event-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const btn = document.getElementById('submit-btn');
+        try {
+          btn.classList.add('loading');
+          await window.api.post('/api/events', {
+            event_name: document.getElementById('event_name').value,
+            client_company: document.getElementById('client_company').value,
+            place: document.getElementById('place').value,
+            event_date: document.getElementById('event_date').value,
+            event_time: document.getElementById('event_time').value,
+            client_contact: document.getElementById('client_contact').value
+          });
+          window.showToast('Event created successfully!');
+          toggleModal('event-modal', false);
+          document.getElementById('event-form').reset();
+          window.resetPagination();
+          loadData(null);
+        } catch (err) {
+          window.showToast(err.message, 'error');
+        } finally {
+          btn.classList.remove('loading');
+        }
+      });
+    });
+  </script>
+</body>
+</html>

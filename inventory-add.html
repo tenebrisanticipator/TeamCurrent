@@ -1,0 +1,115 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Add Item - Team Current</title>
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/css/main.css">
+  <link rel="stylesheet" href="/css/animations.css">
+  <script src="/js/auth-guard.js"></script>
+</head>
+<body>
+  <div class="page-overlay"><div class="page-overlay-line"></div></div>
+  <div class="app-container">
+    <aside class="sidebar sidebar-enter">
+      <div class="sidebar-header"><div class="logo-badge">TC</div><div class="brand-name">CURRENT</div></div>
+      <nav class="nav-menu">
+        <a href="/pages/dashboard.html" class="nav-item">Dashboard</a>
+        <a href="/pages/inventory.html" class="nav-item active">Inventory</a>
+      <a href="javascript:void(0)" id="sidebar-logout-btn" class="nav-item" style="margin-top:auto; color:var(--danger); border-top:1px solid var(--border);">Log Out</a>
+      </nav>
+    </aside>
+    <main class="main-content">
+      <header class="header header-enter">
+        <h1 class="header-title">Add New Item</h1>
+        <div class="user-info">
+          <a href="/pages/profile.html" class="text-right" style="cursor:pointer;">
+            <div id="header-user-name" style="font-weight: 500; font-size: 14px;">-</div>
+            <div id="header-user-role" class="role-chip" style="margin-top: 4px;">-</div>
+          </a>
+          
+        </div>
+      </header>
+
+      <div class="card stagger-in" style="max-width: 600px;">
+        <form id="item-form">
+          <div class="form-group">
+            <label>Item Name</label>
+            <input type="text" id="name" class="form-control" required>
+          </div>
+          <div class="form-group">
+            <label>Category</label>
+            <select id="category_id" class="form-control" required>
+              <option value="">Select Category</option>
+            </select>
+          </div>
+          <div class="flex gap-20">
+            <div class="form-group" style="flex: 1;">
+              <label>Initial Total Quantity</label>
+              <input type="number" id="total_quantity" class="form-control" value="0" min="0">
+            </div>
+            <div class="form-group" style="flex: 1;">
+              <label>Initial Available Quantity</label>
+              <input type="number" id="available_quantity" class="form-control" value="0" min="0">
+            </div>
+          </div>
+          <div class="form-group">
+            <label>Unit (e.g. pcs, m, set)</label>
+            <input type="text" id="unit" class="form-control" placeholder="pcs" required>
+          </div>
+          <div class="form-group">
+            <label>Description / Notes</label>
+            <textarea id="description" class="form-control" rows="3"></textarea>
+          </div>
+          <div class="flex gap-10" style="margin-top: 30px;">
+            <button type="submit" class="btn btn-primary" id="submit-btn" style="width: 150px;">Save Item</button>
+            <a href="/pages/inventory.html" class="btn btn-outline">Cancel</a>
+          </div>
+        </form>
+      </div>
+    </main>
+  </div>
+  
+  <script src="/js/api.js"></script>
+  <script src="/js/toast.js"></script>
+  
+  <script src="/js/transitions.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', async () => {
+      try {
+        const res = await window.api.get('/api/categories');
+        const select = document.getElementById('category_id');
+        res.data.forEach(c => {
+          const opt = document.createElement('option');
+          opt.value = c.category_id;
+          opt.textContent = c.name;
+          select.appendChild(opt);
+        });
+      } catch (err) {
+        window.showToast('Failed to load categories', 'error');
+      }
+    });
+
+    document.getElementById('item-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const btn = document.getElementById('submit-btn');
+      try {
+        btn.classList.add('loading');
+        await window.api.post('/api/items', {
+          name: document.getElementById('name').value,
+          category_id: document.getElementById('category_id').value,
+          total_quantity: parseInt(document.getElementById('total_quantity').value),
+          available_quantity: parseInt(document.getElementById('available_quantity').value),
+          unit: document.getElementById('unit').value,
+          description: document.getElementById('description').value
+        });
+        window.showToast('Item created successfully');
+        setTimeout(() => window.location.href = '/pages/inventory.html', 1000);
+      } catch (err) {
+        window.showToast(err.message, 'error');
+        btn.classList.remove('loading');
+      }
+    });
+  </script>
+</body>
+</html>

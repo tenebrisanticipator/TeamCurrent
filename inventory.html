@@ -1,0 +1,205 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Inventory - Team Current</title>
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/css/main.css">
+  <link rel="stylesheet" href="/css/animations.css">
+  <script src="/js/auth-guard.js"></script>
+</head>
+<body>
+  <div class="page-overlay"><div class="page-overlay-line"></div></div>
+
+  <div class="app-container">
+    <aside class="sidebar sidebar-enter">
+      <div class="sidebar-header">
+        <div class="logo-badge">TC</div>
+        <div class="brand-name">CURRENT</div>
+      </div>
+      <nav class="nav-menu">
+        <a href="/pages/dashboard.html" class="nav-item">Dashboard</a>
+        <a href="/pages/inventory.html" class="nav-item active">Inventory</a>
+        <a href="/pages/purchases.html" class="nav-item">Purchases</a>
+        <a href="/pages/events.html" class="nav-item">Events</a>
+        <a href="/pages/workers.html" class="nav-item admin-only">Workers & Attendance</a>
+        <a href="/pages/users.html" class="nav-item admin-only">User Management</a>
+      <a href="javascript:void(0)" id="sidebar-logout-btn" class="nav-item" style="margin-top:auto; color:var(--danger); border-top:1px solid var(--border);">Log Out</a>
+      </nav>
+      <div class="sidebar-footer">
+        <svg class="truss-accent" viewBox="0 0 100 40">
+          <path d="M0,40 L20,0 L40,40 M20,0 L100,0 M40,40 L100,40 M20,0 L40,40 M40,0 L60,40 M60,0 L80,40 M80,0 L100,40" />
+        </svg>
+      </div>
+    </aside>
+
+    <main class="main-content">
+      <header class="header header-enter">
+        <h1 class="header-title">Inventory</h1>
+        <div class="user-info">
+          <a href="/pages/profile.html" class="text-right" style="cursor:pointer;">
+            <div id="header-user-name" style="font-weight: 500; font-size: 14px;">-</div>
+            <div id="header-user-role" class="role-chip" style="margin-top: 4px;">-</div>
+          </a>
+          
+        </div>
+      </header>
+
+      <div class="stagger-in" style="--i:1">
+        <div class="flex justify-between items-center mb-20">
+          <div class="flex gap-10">
+            <input type="text" id="search-input" class="form-control" style="width: 250px;" placeholder="Search inventory...">
+            <select id="category-filter" class="form-control" style="width: 180px;">
+              <option value="">All Categories</option>
+            </select>
+          </div>
+          <div class="flex gap-10 admin-only">
+            <a href="/pages/categories.html" class="btn btn-outline">Manage Categories</a>
+            <a href="/pages/inventory-add.html" class="btn btn-primary">+ Add New Item</a>
+          </div>
+        </div>
+
+        <div class="table-container">
+          <table>
+            <thead>
+              <tr>
+                <th>Item Name</th>
+                <th>Category</th>
+                <th>Available</th>
+                <th>Total Fixed</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="table-body">
+              <!-- Content injected -->
+            </tbody>
+          </table>
+        </div>
+        <div id="pagination-container"></div>
+      </div>
+    </main>
+  </div>
+
+  <script src="/js/api.js"></script>
+  <script src="/js/toast.js"></script>
+  
+  <script src="/js/transitions.js"></script>
+  <script src="/js/skeleton.js"></script>
+  <script src="/js/utils.js"></script>
+  <script src="/js/pagination.js"></script>
+  
+  <script>
+    let currentCursor = null;
+    let currentSearch = '';
+    let currentCategory = '';
+
+    async function loadCategories() {
+      try {
+        const res = await window.api.get('/api/categories');
+        const select = document.getElementById('category-filter');
+        res.data.forEach(c => {
+          const opt = document.createElement('option');
+          opt.value = c.category_id;
+          opt.textContent = c.name;
+          select.appendChild(opt);
+        });
+      } catch (err) {
+        console.error('Failed to load categories');
+      }
+    }
+
+    async function loadData(cursor = null) {
+      document.getElementById('table-body').innerHTML = '';
+      window.renderSkeletonRows('table-body', 5, 5);
+
+      try {
+        let url = `/api/items?limit=20`;
+        if (cursor) url += `&cursor=${encodeURIComponent(cursor)}`;
+        if (currentSearch) url += `&search=${encodeURIComponent(currentSearch)}`;
+        if (currentCategory) url += `&category=${encodeURIComponent(currentCategory)}`;
+
+        const res = await window.api.get(url);
+        renderTable(res.data);
+        window.renderPagination('pagination-container', res, loadData);
+      } catch (err) {
+        window.showToast(err.message, 'error');
+        document.getElementById('table-body').innerHTML = `<tr><td colspan="5" class="text-center text-muted">Failed to load data</td></tr>`;
+      }
+    }
+
+    function renderTable(data) {
+      const tbody = document.getElementById('table-body');
+      tbody.innerHTML = '';
+      
+      if (data.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding: 40px;">No items found.</td></tr>`;
+        return;
+      }
+
+      data.forEach((item, index) => {
+        const tr = document.createElement('tr');
+        tr.className = 'stagger-in';
+        tr.style.setProperty('--i', `${index}`);
+        
+        const availabilityColor = item.available_quantity === 0 ? 'var(--danger)' : 'var(--white)';
+        
+        tr.innerHTML = `
+          <td style="font-weight: 500;">${item.name}</td>
+          <td><span class="badge" style="background: var(--surface-2);">${item.category_name || 'Uncategorized'}</span></td>
+          <td style="color: ${availabilityColor}; font-weight: ${item.available_quantity===0?'bold':'normal'};">${item.available_quantity} ${item.unit}</td>
+          <td class="text-muted">${item.total_quantity} ${item.unit}</td>
+          <td>
+            <div class="flex gap-10">
+              <button class="btn btn-outline" style="padding: 4px 8px; font-size: 12px;" onclick="adjustStock('${item.item_id}', '${item.name}')">Adjust</button>
+              <a href="/pages/inventory-edit.html?id=${item.item_id}" class="btn btn-outline admin-only" style="padding: 4px 8px; font-size: 12px;">Edit</a>
+            </div>
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+      window.checkRoleAccess();
+    }
+
+    async function adjustStock(id, name) {
+      const adjustment = prompt(`Adjust available stock for ${name}. Enter a number (e.g. 5 to add, -3 to subtract):`);
+      if (adjustment === null || adjustment === '') return;
+      
+      const num = parseInt(adjustment);
+      if (isNaN(num)) {
+        window.showToast('Invalid number', 'error');
+        return;
+      }
+
+      try {
+        await window.api.patch(`/api/items/${id}/adjust-quantity`, { amount_change: num });
+        window.showToast('Stock adjusted successfully');
+        loadData(null); // refresh
+      } catch (err) {
+        window.showToast(err.message, 'error');
+      }
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      loadCategories();
+      loadData(null);
+
+      const searchInput = document.getElementById('search-input');
+      const catFilter = document.getElementById('category-filter');
+
+      const handleSearch = window.debounce(() => {
+        currentSearch = searchInput.value.trim();
+        window.resetPagination();
+        loadData(null);
+      }, 350);
+
+      searchInput.addEventListener('input', handleSearch);
+      
+      catFilter.addEventListener('change', () => {
+        currentCategory = catFilter.value;
+        window.resetPagination();
+        loadData(null);
+      });
+    });
+  </script>
+</body>
+</html>

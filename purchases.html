@@ -1,0 +1,259 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Purchases - Team Current</title>
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/css/main.css">
+  <link rel="stylesheet" href="/css/animations.css">
+  <script src="/js/auth-guard.js"></script>
+</head>
+<body>
+  <div class="page-overlay"><div class="page-overlay-line"></div></div>
+
+  <!-- Add Purchase Modal -->
+  <div class="modal-backdrop" id="purchase-modal" onclick="if(event.target===this) toggleModal('purchase-modal', false)">
+    <div class="modal-card">
+      <h3 class="card-title" style="color:var(--white); font-size:20px;">New Purchase Order</h3>
+      <form id="purchase-form" class="mt-20">
+        <div class="form-group">
+          <label>Search & Select Item</label>
+          <div style="position:relative;">
+            <input type="text" id="item-search" class="form-control" placeholder="Type 2+ letters..." autocomplete="off">
+            <input type="hidden" id="item_id" required>
+            <div id="item-dropdown" style="position:absolute; width:100%; max-height:150px; overflow-y:auto; background:var(--surface-2); border:1px solid var(--border); z-index:100; display:none; border-radius:4px;"></div>
+          </div>
+        </div>
+        
+        <div class="form-group">
+          <label>Search & Select Supplier</label>
+          <div style="position:relative;">
+            <div class="flex gap-10">
+              <input type="text" id="supplier-search" class="form-control" placeholder="Type 2+ letters..." autocomplete="off">
+              <button type="button" class="btn btn-outline" style="padding:0 10px;" onclick="addQuickSupplier()">+ New</button>
+            </div>
+            <input type="hidden" id="supplier_id" required>
+            <div id="supplier-dropdown" style="position:absolute; width:100%; max-height:150px; overflow-y:auto; background:var(--surface-2); border:1px solid var(--border); z-index:100; display:none; border-radius:4px;"></div>
+          </div>
+        </div>
+
+        <div class="flex gap-10">
+          <div class="form-group" style="flex:1;">
+            <label>Quantity</label>
+            <input type="number" id="quantity" class="form-control" min="1" required>
+          </div>
+          <div class="form-group" style="flex:1;">
+            <label>Date</label>
+            <input type="date" id="purchase_date" class="form-control" required>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>Notes</label>
+          <textarea id="notes" class="form-control" rows="2"></textarea>
+        </div>
+
+        <div class="flex gap-10" style="margin-top:20px;">
+          <button type="submit" class="btn btn-primary" id="submit-btn" style="flex:1;">Create Order</button>
+          <button type="button" class="btn btn-outline" onclick="toggleModal('purchase-modal', false)" style="flex:1;">Cancel</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div class="app-container">
+    <aside class="sidebar sidebar-enter">
+      <div class="sidebar-header"><div class="logo-badge">TC</div><div class="brand-name">CURRENT</div></div>
+      <nav class="nav-menu">
+        <a href="/pages/dashboard.html" class="nav-item">Dashboard</a>
+        <a href="/pages/inventory.html" class="nav-item">Inventory</a>
+        <a href="/pages/purchases.html" class="nav-item active">Purchases</a>
+        <a href="/pages/events.html" class="nav-item">Events</a>
+        <a href="/pages/workers.html" class="nav-item admin-only">Workers & Attendance</a>
+        <a href="/pages/users.html" class="nav-item admin-only">User Management</a>
+      <a href="javascript:void(0)" id="sidebar-logout-btn" class="nav-item" style="margin-top:auto; color:var(--danger); border-top:1px solid var(--border);">Log Out</a>
+      </nav>
+      <div class="sidebar-footer">
+        <svg class="truss-accent" viewBox="0 0 100 40"><path d="M0,40 L20,0 L40,40 M20,0 L100,0 M40,40 L100,40 M20,0 L40,40 M40,0 L60,40 M60,0 L80,40 M80,0 L100,40"/></svg>
+      </div>
+    </aside>
+
+    <main class="main-content">
+      <header class="header header-enter">
+        <h1 class="header-title">Purchases</h1>
+        <div class="user-info">
+          <a href="/pages/profile.html" class="text-right" style="cursor:pointer;">
+            <div id="header-user-name" style="font-weight: 500; font-size: 14px;">-</div>
+            <div id="header-user-role" class="role-chip" style="margin-top: 4px;">-</div>
+          </a>
+          
+        </div>
+      </header>
+
+      <div class="stagger-in" style="--i:1">
+        <div class="flex justify-between items-center mb-20">
+          <div class="flex gap-10">
+            <div style="font-size: 14px; color: var(--text-muted); padding-top: 10px;">Showing paginated purchase logs</div>
+          </div>
+          <button class="btn btn-primary" onclick="toggleModal('purchase-modal', true)">+ Record Purchase</button>
+        </div>
+
+        <div class="table-container">
+          <table>
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Item</th>
+                <th>Supplier</th>
+                <th>Quantity</th>
+                <th>Added By</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="table-body"></tbody>
+          </table>
+        </div>
+        <div id="pagination-container"></div>
+      </div>
+    </main>
+  </div>
+
+  <script src="/js/api.js"></script>
+  <script src="/js/toast.js"></script>
+  
+  <script src="/js/transitions.js"></script>
+  <script src="/js/skeleton.js"></script>
+  <script src="/js/utils.js"></script>
+  <script src="/js/pagination.js"></script>
+  
+  <script>
+    function toggleModal(id, show) {
+      document.getElementById(id).classList.toggle('open', show);
+      if(show) document.getElementById('purchase_date').valueAsDate = new Date();
+    }
+
+    async function loadData(cursor = null) {
+      document.getElementById('table-body').innerHTML = '';
+      window.renderSkeletonRows('table-body', 6, 5);
+
+      try {
+        let url = `/api/purchases?limit=20`;
+        if (cursor) url += `&cursor=${encodeURIComponent(cursor)}`;
+
+        const res = await window.api.get(url);
+        renderTable(res.data);
+        window.renderPagination('pagination-container', res, loadData);
+      } catch (err) {
+        window.showToast(err.message, 'error');
+        document.getElementById('table-body').innerHTML = `<tr><td colspan="6" class="text-center text-muted">Failed to load data</td></tr>`;
+      }
+    }
+
+    function renderTable(data) {
+      const tbody = document.getElementById('table-body');
+      tbody.innerHTML = '';
+      if (data.length === 0) return tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding: 40px;">No purchases found.</td></tr>`;
+
+      data.forEach((p, index) => {
+        const tr = document.createElement('tr');
+        tr.className = 'stagger-in';
+        tr.style.setProperty('--i', `${index}`);
+        tr.innerHTML = `
+          <td>${window.formatDateISTOnly(p.purchase_date)}</td>
+          <td style="font-weight: 500;">${p.item_name}</td>
+          <td><span class="badge" style="background: var(--surface-2);">${p.supplier_name}</span></td>
+          <td style="color: var(--amber);">+${p.quantity}</td>
+          <td class="text-muted" style="font-size:12px;">${p.added_by_name || 'Admin'}</td>
+          <td>
+            <a href="/pages/purchase-detail.html?id=${p.purchase_id}" class="btn btn-outline" style="padding: 4px 8px; font-size: 12px;">View ${window.currentUser?.role === 'admin' ? '& PDF' : ''}</a>
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+      window.checkRoleAccess();
+    }
+
+    // Lazy load dropdowns
+    function setupSearchDropdown(inputId, hiddenId, dropdownId, endpoint, mapFn) {
+      const input = document.getElementById(inputId);
+      const hidden = document.getElementById(hiddenId);
+      const dd = document.getElementById(dropdownId);
+      
+      const searchFn = window.debounce(async () => {
+        if(input.value.length < 2) { dd.style.display = 'none'; return; }
+        try {
+          const res = await window.api.get(`${endpoint}?q=${encodeURIComponent(input.value)}`);
+          dd.innerHTML = '';
+          if(res.data.length === 0) {
+            dd.innerHTML = '<div style="padding:10px; color:var(--text-muted);">No results</div>';
+          } else {
+            res.data.forEach(item => {
+              const div = document.createElement('div');
+              div.style.padding = '10px'; div.style.cursor = 'pointer';
+              div.style.borderBottom = '1px solid var(--border)';
+              div.textContent = mapFn(item).label;
+              div.onclick = () => {
+                input.value = mapFn(item).label;
+                hidden.value = mapFn(item).val;
+                dd.style.display = 'none';
+              };
+              div.onmouseenter = () => div.style.background = 'var(--surface)';
+              div.onmouseleave = () => div.style.background = 'transparent';
+              dd.appendChild(div);
+            });
+          }
+          dd.style.display = 'block';
+        } catch(err) { console.error(err); }
+      }, 350);
+
+      input.addEventListener('input', searchFn);
+      document.addEventListener('click', (e) => {
+        if(e.target !== input && e.target !== dd) dd.style.display = 'none';
+      });
+    }
+
+    async function addQuickSupplier() {
+      const name = prompt("Enter Supplier Company Name:");
+      if (!name) return;
+      try {
+        const res = await window.api.post('/api/purchases/suppliers', { company_name: name });
+        document.getElementById('supplier-search').value = res.company_name;
+        document.getElementById('supplier_id').value = res.supplier_id;
+        window.showToast("Supplier added quickly");
+      } catch (err) {
+        window.showToast("Failed to add supplier", 'error');
+      }
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      loadData(null);
+      setupSearchDropdown('item-search', 'item_id', 'item-dropdown', '/api/items/search', i => ({label: `${i.name} (${i.available_quantity} ${i.unit} in stock)`, val: i.item_id}));
+      setupSearchDropdown('supplier-search', 'supplier_id', 'supplier-dropdown', '/api/purchases/suppliers/search', s => ({label: s.company_name, val: s.supplier_id}));
+
+      document.getElementById('purchase-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const btn = document.getElementById('submit-btn');
+        try {
+          btn.classList.add('loading');
+          await window.api.post('/api/purchases', {
+            item_id: document.getElementById('item_id').value,
+            supplier_id: document.getElementById('supplier_id').value,
+            quantity: parseInt(document.getElementById('quantity').value),
+            purchase_date: document.getElementById('purchase_date').value,
+            notes: document.getElementById('notes').value
+          });
+          window.showToast('Purchase recorded successfully!');
+          toggleModal('purchase-modal', false);
+          document.getElementById('purchase-form').reset();
+          window.resetPagination();
+          loadData(null);
+        } catch (err) {
+          window.showToast(err.message, 'error');
+        } finally {
+          btn.classList.remove('loading');
+        }
+      });
+    });
+  </script>
+</body>
+</html>

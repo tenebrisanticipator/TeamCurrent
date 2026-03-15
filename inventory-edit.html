@@ -1,0 +1,144 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Edit Item - Team Current</title>
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/css/main.css">
+  <link rel="stylesheet" href="/css/animations.css">
+  <script src="/js/auth-guard.js"></script>
+</head>
+<body>
+  <div class="page-overlay"><div class="page-overlay-line"></div></div>
+  <div class="app-container">
+    <aside class="sidebar sidebar-enter">
+      <div class="sidebar-header"><div class="logo-badge">TC</div><div class="brand-name">CURRENT</div></div>
+      <nav class="nav-menu">
+        <a href="/pages/dashboard.html" class="nav-item">Dashboard</a>
+        <a href="/pages/inventory.html" class="nav-item active">Inventory</a>
+      <a href="javascript:void(0)" id="sidebar-logout-btn" class="nav-item" style="margin-top:auto; color:var(--danger); border-top:1px solid var(--border);">Log Out</a>
+      </nav>
+    </aside>
+    <main class="main-content">
+      <header class="header header-enter">
+        <h1 class="header-title">Edit Item</h1>
+        <div class="user-info">
+          
+        </div>
+      </header>
+
+      <div class="card stagger-in" style="max-width: 600px;">
+        <form id="item-form">
+          <div class="form-group">
+            <label>Item Name</label>
+            <input type="text" id="name" class="form-control" required>
+          </div>
+          <div class="form-group">
+            <label>Category</label>
+            <select id="category_id" class="form-control" required></select>
+          </div>
+          <div class="flex gap-20">
+            <div class="form-group" style="flex: 1;">
+              <label>Total Quantity</label>
+              <input type="number" id="total_quantity" class="form-control" min="0">
+            </div>
+            <div class="form-group" style="flex: 1;">
+              <label>Available Quantity</label>
+              <input type="number" id="available_quantity" class="form-control" min="0">
+            </div>
+          </div>
+          <div class="form-group">
+            <label>Unit</label>
+            <input type="text" id="unit" class="form-control" required>
+          </div>
+          <div class="form-group">
+            <label>Description</label>
+            <textarea id="description" class="form-control" rows="3"></textarea>
+          </div>
+          <div class="flex gap-10 mt-20" style="margin-top:20px;">
+            <button type="submit" class="btn btn-primary" id="submit-btn">Update Item</button>
+            <button type="button" class="btn btn-danger hidden admin-only" id="delete-btn">Delete Item</button>
+            <a href="/pages/inventory.html" class="btn btn-outline">Cancel</a>
+          </div>
+        </form>
+      </div>
+    </main>
+  </div>
+
+  <script src="/js/api.js"></script>
+  <script src="/js/toast.js"></script>
+  
+  <script src="/js/transitions.js"></script>
+  <script src="/js/utils.js"></script>
+  <script>
+    const urlParams = new URLSearchParams(window.location.search);
+    const itemId = urlParams.get('id');
+
+    document.addEventListener('DOMContentLoaded', async () => {
+      if (!itemId) return window.location.href = '/pages/inventory.html';
+      
+      try {
+        const [catRes, itemRes] = await Promise.all([
+          window.api.get('/api/categories'),
+          window.api.get(`/api/items/${itemId}`)
+        ]);
+
+        const select = document.getElementById('category_id');
+        catRes.data.forEach(c => {
+          const opt = document.createElement('option');
+          opt.value = c.category_id;
+          opt.textContent = c.name;
+          select.appendChild(opt);
+        });
+
+        const item = itemRes;
+        document.getElementById('name').value = item.name;
+        document.getElementById('category_id').value = item.category_id;
+        document.getElementById('total_quantity').value = item.total_quantity;
+        document.getElementById('available_quantity').value = item.available_quantity;
+        document.getElementById('unit').value = item.unit;
+        document.getElementById('description').value = item.description || '';
+
+        // Show delete button for admins
+        if (window.currentUser && window.currentUser.role === 'admin') {
+          document.getElementById('delete-btn').classList.remove('hidden');
+        }
+      } catch (err) {
+        window.showToast('Failed to load item data', 'error');
+      }
+    });
+
+    document.getElementById('item-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const btn = document.getElementById('submit-btn');
+      try {
+        btn.classList.add('loading');
+        await window.api.put(`/api/items/${itemId}`, {
+          name: document.getElementById('name').value,
+          category_id: document.getElementById('category_id').value,
+          total_quantity: parseInt(document.getElementById('total_quantity').value),
+          available_quantity: parseInt(document.getElementById('available_quantity').value),
+          unit: document.getElementById('unit').value,
+          description: document.getElementById('description').value
+        });
+        window.showToast('Item updated successfully');
+        setTimeout(() => window.location.href = '/pages/inventory.html', 1000);
+      } catch (err) {
+        window.showToast(err.message, 'error');
+        btn.classList.remove('loading');
+      }
+    });
+
+    document.getElementById('delete-btn').addEventListener('click', async () => {
+      if (!confirm('Are you sure you want to delete this item?')) return;
+      try {
+        await window.api.delete(`/api/items/${itemId}`);
+        window.showToast('Item deleted safely');
+        setTimeout(() => window.location.href = '/pages/inventory.html', 1000);
+      } catch (err) {
+        window.showToast(err.message, 'error');
+      }
+    });
+  </script>
+</body>
+</html>

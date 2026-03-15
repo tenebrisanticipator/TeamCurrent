@@ -1,0 +1,186 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>User Management - Team Current</title>
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/css/main.css">
+  <link rel="stylesheet" href="/css/animations.css">
+  <script src="/js/auth-guard.js"></script>
+</head>
+<body>
+  <div class="page-overlay"><div class="page-overlay-line"></div></div>
+
+  <div class="app-container">
+    <aside class="sidebar sidebar-enter">
+      <div class="sidebar-header"><div class="logo-badge">TC</div><div class="brand-name">CURRENT</div></div>
+      <nav class="nav-menu">
+        <a href="/pages/dashboard.html" class="nav-item">Dashboard</a>
+        <a href="/pages/inventory.html" class="nav-item">Inventory</a>
+        <a href="/pages/purchases.html" class="nav-item">Purchases</a>
+        <a href="/pages/events.html" class="nav-item">Events</a>
+        <a href="/pages/workers.html" class="nav-item admin-only">Workers & Attendance</a>
+        <a href="/pages/users.html" class="nav-item active admin-only">User Management</a>
+      <a href="javascript:void(0)" id="sidebar-logout-btn" class="nav-item" style="margin-top:auto; color:var(--danger); border-top:1px solid var(--border);">Log Out</a>
+      </nav>
+      <div class="sidebar-footer">
+        <svg class="truss-accent" viewBox="0 0 100 40"><path d="M0,40 L20,0 L40,40 M20,0 L100,0 M40,40 L100,40 M20,0 L40,40 M40,0 L60,40 M60,0 L80,40 M80,0 L100,40"/></svg>
+      </div>
+    </aside>
+
+    <main class="main-content">
+      <header class="header header-enter">
+        <h1 class="header-title">System Users</h1>
+        <div class="user-info">
+          <a href="/pages/profile.html" class="text-right" style="cursor:pointer;">
+            <div id="header-user-name" style="font-weight: 500; font-size: 14px;">-</div>
+            <div id="header-user-role" class="role-chip" style="margin-top: 4px;">-</div>
+          </a>
+          
+        </div>
+      </header>
+
+      <div class="flex gap-20">
+        <!-- Add User Form -->
+        <div class="card stagger-in" style="--i:1; flex:1;">
+          <h3 class="card-title">Invite New User</h3>
+          <form id="user-form">
+            <div class="form-group">
+              <label>Name</label>
+              <input type="text" id="name" class="form-control" required>
+            </div>
+            <div class="form-group">
+              <label>Email Address</label>
+              <input type="email" id="email" class="form-control" required>
+            </div>
+            <div class="form-group">
+              <label>Temporary Password</label>
+              <input type="text" id="password" class="form-control" required>
+            </div>
+            <div class="form-group mb-20">
+              <label>Access Role</label>
+              <select id="role" class="form-control" required>
+                <option value="viewer">Viewer (Read Only)</option>
+                <option value="manager">Manager</option>
+                <option value="admin">Administrator</option>
+              </select>
+            </div>
+            <button type="submit" class="btn btn-primary" id="submit-btn" style="width:100%;">Create Account</button>
+          </form>
+        </div>
+
+        <!-- Users List -->
+        <div class="stagger-in" style="--i:2; flex:2;">
+          <div class="table-container text-right">
+            <table>
+              <thead>
+                <tr>
+                  <th>User Details</th>
+                  <th>Role</th>
+                  <th>Status</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="table-body"></tbody>
+            </table>
+          </div>
+          <div id="pagination-container"></div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script src="/js/api.js"></script>
+  <script src="/js/toast.js"></script>
+  
+  <script src="/js/transitions.js"></script>
+  <script src="/js/skeleton.js"></script>
+  <script src="/js/utils.js"></script>
+  <script src="/js/pagination.js"></script>
+  
+  <script>
+    async function loadData(cursor = null) {
+      document.getElementById('table-body').innerHTML = '';
+      window.renderSkeletonRows('table-body', 4, 3);
+
+      try {
+        let url = `/api/users?limit=10`;
+        if (cursor) url += `&cursor=${encodeURIComponent(cursor)}`;
+
+        const res = await window.api.get(url);
+        renderTable(res.data);
+        window.renderPagination('pagination-container', res, loadData);
+      } catch (err) {
+        window.showToast(err.message, 'error');
+      }
+    }
+
+    function renderTable(data) {
+      const tbody = document.getElementById('table-body');
+      tbody.innerHTML = '';
+      if (data.length === 0) return tbody.innerHTML = `<tr><td colspan="4" class="text-center">No users found.</td></tr>`;
+
+      data.forEach((u, index) => {
+        const tr = document.createElement('tr');
+        tr.className = 'stagger-in';
+        tr.style.setProperty('--i', `${index}`);
+        
+        tr.innerHTML = `
+          <td>
+            <div style="font-weight: 500;">${u.name}</div>
+            <div style="font-size: 12px; color: var(--text-muted);">${u.email}</div>
+          </td>
+          <td><span class="badge" style="background:var(--surface-2); text-transform:uppercase;">${u.role}</span></td>
+          <td>
+            <span class="badge" style="background:${u.is_active ? 'var(--success)' : 'var(--danger)'}; color:${u.is_active ? 'white' : 'white'}">
+              ${u.is_active ? 'ACTIVE' : 'DISABLED'}
+            </span>
+          </td>
+          <td>
+            <div class="flex gap-10">
+              <button class="btn btn-outline" style="padding: 4px 8px; font-size:12px;" onclick="toggleStatus('${u.user_id}', ${!u.is_active})">Toggle</button>
+            </div>
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+      window.checkRoleAccess();
+    }
+
+    async function toggleStatus(id, newStatus) {
+      try {
+        await window.api.patch(`/api/users/${id}/status`, { is_active: newStatus });
+        window.showToast('Status updated');
+        loadData(null);
+      } catch(err) { window.showToast(err.message, 'error'); }
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      loadData(null);
+
+      document.getElementById('user-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const btn = document.getElementById('submit-btn');
+        try {
+          btn.classList.add('loading');
+          
+          await window.api.post('/api/users', {
+            name: document.getElementById('name').value,
+            email: document.getElementById('email').value,
+            password: document.getElementById('password').value,
+            role: document.getElementById('role').value
+          });
+          window.showToast('User created successfully!');
+          document.getElementById('user-form').reset();
+          window.resetPagination();
+          loadData(null);
+        } catch (err) {
+          window.showToast(err.message, 'error');
+        } finally {
+          btn.classList.remove('loading');
+        }
+      });
+    });
+  </script>
+</body>
+</html>

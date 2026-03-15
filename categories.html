@@ -1,0 +1,122 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Categories - Team Current</title>
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/css/main.css">
+  <link rel="stylesheet" href="/css/animations.css">
+  <script src="/js/auth-guard.js"></script>
+</head>
+<body>
+  <div class="page-overlay"><div class="page-overlay-line"></div></div>
+  <div class="app-container">
+    <aside class="sidebar sidebar-enter">
+      <div class="sidebar-header"><div class="logo-badge">TC</div><div class="brand-name">CURRENT</div></div>
+      <nav class="nav-menu">
+        <a href="/pages/dashboard.html" class="nav-item">Dashboard</a>
+        <a href="/pages/inventory.html" class="nav-item active">Inventory</a>
+      <a href="javascript:void(0)" id="sidebar-logout-btn" class="nav-item" style="margin-top:auto; color:var(--danger); border-top:1px solid var(--border);">Log Out</a>
+      </nav>
+    </aside>
+    <main class="main-content">
+      <header class="header header-enter">
+        <h1 class="header-title">Manage Categories</h1>
+        <div class="user-info">
+          <a href="/pages/inventory.html" class="btn btn-outline" style="padding: 6px 12px;">Back to Inventory</a>
+        </div>
+      </header>
+
+      <div class="flex gap-20">
+        <div class="card stagger-in" style="--i:1; flex: 1;">
+          <h3 class="card-title">Add Category</h3>
+          <form id="cat-form">
+            <div class="form-group">
+              <label>Name</label>
+              <input type="text" id="name" class="form-control" required>
+            </div>
+            <div class="form-group">
+              <label>Description</label>
+              <input type="text" id="description" class="form-control">
+            </div>
+            <button type="submit" class="btn btn-primary" id="submit-btn">Create Category</button>
+          </form>
+        </div>
+
+        <div class="card stagger-in" style="--i:2; flex: 2;">
+          <h3 class="card-title">Existing Categories</h3>
+          <div class="table-container">
+            <table>
+              <thead>
+                <tr><th>Name</th><th>Description</th><th>Actions</th></tr>
+              </thead>
+              <tbody id="table-body"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script src="/js/api.js"></script>
+  <script src="/js/toast.js"></script>
+  
+  <script src="/js/transitions.js"></script>
+  <script src="/js/skeleton.js"></script>
+  <script>
+    async function loadData() {
+      document.getElementById('table-body').innerHTML = '';
+      window.renderSkeletonRows('table-body', 3, 3);
+      try {
+        const res = await window.api.get('/api/categories');
+        const tbody = document.getElementById('table-body');
+        tbody.innerHTML = '';
+        res.data.forEach((c) => {
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
+            <td>${c.name}</td>
+            <td class="text-muted">${c.description || '-'}</td>
+            <td><button class="btn btn-outline admin-only" style="padding:4px 8px; font-size:12px; border-color:var(--danger); color:var(--danger)" onclick="deleteCategory('${c.category_id}')">Delete</button></td>
+          `;
+          tbody.appendChild(tr);
+        });
+        window.checkRoleAccess();
+      } catch (err) {
+        window.showToast('Failed to load categories', 'error');
+      }
+    }
+
+    async function deleteCategory(id) {
+      if(!confirm('Delete this category? Items in this category will keep it indefinitely unless updated first. Proceed?')) return;
+      try {
+        await window.api.delete(`/api/categories/${id}`);
+        window.showToast('Category deleted');
+        loadData();
+      } catch (err) {
+        window.showToast(err.message, 'error');
+      }
+    }
+
+    document.getElementById('cat-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const btn = document.getElementById('submit-btn');
+      try {
+        btn.classList.add('loading');
+        await window.api.post('/api/categories', {
+          name: document.getElementById('name').value,
+          description: document.getElementById('description').value
+        });
+        window.showToast('Category created');
+        document.getElementById('cat-form').reset();
+        await loadData();
+      } catch (err) {
+        window.showToast(err.message, 'error');
+      } finally {
+        btn.classList.remove('loading');
+      }
+    });
+
+    document.addEventListener('DOMContentLoaded', loadData);
+  </script>
+</body>
+</html>
