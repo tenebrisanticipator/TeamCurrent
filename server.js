@@ -41,6 +41,12 @@ apiRouter.use('/categories', require('./routes/categories'));
 apiRouter.use('/purchases', require('./routes/purchases'));
 apiRouter.use('/events', require('./routes/events'));
 
+// Root redirect
+app.get('/', (req, res) => {
+  res.redirect('/pages/login.html');
+});
+
+
 // Attach API router under /api
 app.use('/api', apiRouter);
 
