@@ -35,6 +35,11 @@ document.documentElement.style.visibility = 'hidden';
       if(userNameEl) userNameEl.textContent = data.user.name;
       if(userRoleEl) userRoleEl.textContent = data.user.role;
       
+      // Hide admin-only sidebar items for non-admins
+      if (data.user.role !== 'admin') {
+        document.querySelectorAll('.admin-only').forEach(el => el.remove());
+      }
+      
       // Setup logout
       const logoutBtn = document.getElementById('sidebar-logout-btn');
       if (logoutBtn) {
