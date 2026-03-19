@@ -16,7 +16,7 @@ app.use(helmet({
   contentSecurityPolicy: false, // Too restrictive for simple HTML/JS frontend sometimes, can be refined
 }));
 app.use(cors({
-  origin: process.env.NODE_ENV === 'production' ? 'https://your-vercel-domain.vercel.app' : 'http://localhost:3000',
+  origin: process.env.NODE_ENV === 'production' ? 'https://team-current.vercel.app' : 'http://localhost:3000',
   credentials: true
 }));
 app.use(express.json());
