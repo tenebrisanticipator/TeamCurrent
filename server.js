@@ -24,7 +24,13 @@ app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 
 // Static Files - Registered BEFORE API routes so frontend loads without CSRF/auth issues initially
-app.use(express.static('public'));
+app.use(express.static('public', { 
+  setHeaders: (res, path) => {
+    if (path.endsWith('.html')) {
+      res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    }
+  }
+}));
 
 // CSRF Protection configuration (using cookie for token)
 const csrfProtection = csurf({ cookie: { httpOnly: true, secure: process.env.NODE_ENV === 'production', sameSite: 'strict' } });
