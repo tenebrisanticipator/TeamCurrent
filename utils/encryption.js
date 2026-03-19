@@ -2,11 +2,23 @@ const crypto = require('crypto');
 require('dotenv').config();
 
 const algorithm = 'aes-256-cbc';
-const secretKey = Buffer.from(process.env.AES_SECRET_KEY, 'utf8');
-const iv = Buffer.from(process.env.AES_IV, 'utf8');
+
+// Convert hex strings to buffers
+// AES-256 requires 32-byte key, AES-CBC requires 16-byte IV
+const secretKey = Buffer.from(process.env.AES_SECRET_KEY || crypto.randomBytes(32).toString('hex'), 'hex');
+const iv = Buffer.from(process.env.AES_IV || crypto.randomBytes(16).toString('hex'), 'hex');
 
 function encrypt(text) {
   if (!text) return text;
+  
+  // Validate key and IV sizes
+  if (secretKey.length !== 32) {
+    throw new Error(`Invalid AES_SECRET_KEY length: ${secretKey.length} bytes. Must be 32 bytes.`);
+  }
+  if (iv.length !== 16) {
+    throw new Error(`Invalid AES_IV length: ${iv.length} bytes. Must be 16 bytes.`);
+  }
+  
   const cipher = crypto.createCipheriv(algorithm, secretKey, iv);
   let encrypted = cipher.update(text, 'utf8', 'hex');
   encrypted += cipher.final('hex');
@@ -15,6 +27,15 @@ function encrypt(text) {
 
 function decrypt(encryptedText) {
   if (!encryptedText) return encryptedText;
+  
+  // Validate key and IV sizes
+  if (secretKey.length !== 32) {
+    throw new Error(`Invalid AES_SECRET_KEY length: ${secretKey.length} bytes. Must be 32 bytes.`);
+  }
+  if (iv.length !== 16) {
+    throw new Error(`Invalid AES_IV length: ${iv.length} bytes. Must be 16 bytes.`);
+  }
+  
   try {
     const decipher = crypto.createDecipheriv(algorithm, secretKey, iv);
     let decrypted = decipher.update(encryptedText, 'hex', 'utf8');
