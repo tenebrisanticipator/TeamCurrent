@@ -12,7 +12,7 @@
   <div class="page-overlay"><div class="page-overlay-line"></div></div>
 
   <!-- Add Worker Modal -->
-  <div class="modal-backdrop" id="worker-modal" onclick="if(event.target===this) toggleModal('worker-modal', false)">
+  <div class="modal-backdrop" id="worker-modal" onclick="if(event.target===this) resetWorkerForm()">
     <div class="modal-card">
       <h3 class="card-title" style="color:var(--white); font-size:20px;" id="worker-modal-title">Onboard New Worker</h3>
       <form id="worker-form" class="mt-20">
@@ -49,7 +49,7 @@
         </div>
         <div class="flex gap-10 mt-20">
           <button type="submit" class="btn btn-primary" id="submit-btn" style="flex:1;">Register Worker</button>
-          <button type="button" class="btn btn-outline" onclick="toggleModal('worker-modal', false)" style="flex:1;">Cancel</button>
+          <button type="button" class="btn btn-outline" onclick="resetWorkerForm()" style="flex:1;">Cancel</button>
         </div>
       </form>
     </div>
@@ -124,7 +124,7 @@
           <div class="flex gap-10">
             <input type="text" id="search-input" class="form-control" style="width: 250px;" placeholder="Search name/code/phone...">
           </div>
-          <button class="btn btn-primary" onclick="toggleModal('worker-modal', true)">+ Add Worker</button>
+          <button class="btn btn-primary" onclick="openAddWorkerModal()">+ Add Worker</button>
         </div>
 
         <div class="table-container">
@@ -160,6 +160,29 @@
 
     function toggleModal(id, show) {
       document.getElementById(id).classList.toggle('open', show);
+    }
+
+    function resetWorkerForm() {
+      currentEditId = null;
+      document.getElementById('worker-form').reset();
+      document.getElementById('worker-modal-title').textContent = 'Onboard New Worker';
+      document.getElementById('submit-btn').textContent = 'Register Worker';
+      document.getElementById('daily_wage_base').style.display = 'block';
+      document.getElementById('is_active').checked = false;
+      toggleModal('worker-modal', false);
+    }
+
+    function openAddWorkerModal() {
+      // Reset to add mode
+      currentEditId = null;
+      document.getElementById('worker-form').reset();
+      document.getElementById('worker-modal-title').textContent = 'Onboard New Worker';
+      document.getElementById('submit-btn').textContent = 'Register Worker';
+      document.getElementById('submit-btn').classList.remove('loading');
+      document.getElementById('daily_wage_base').style.display = 'block';
+      document.getElementById('is_active').checked = false;
+      
+      toggleModal('worker-modal', true);
     }
 
     async function viewWorkerDetails(workerId) {
@@ -326,6 +349,7 @@ Joined: ${worker.joined_date || 'N/A'}
           document.getElementById('worker-modal-title').textContent = 'Onboard New Worker';
           document.getElementById('submit-btn').textContent = 'Register Worker';
           document.getElementById('daily_wage_base').style.display = 'block';
+          currentEditId = null;
           window.resetPagination();
           loadData(null);
         } catch (err) {
