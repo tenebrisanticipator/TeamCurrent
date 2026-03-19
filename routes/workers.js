@@ -25,6 +25,7 @@ router.get('/search', async (req, res) => {
     `;
     res.json({ data: workers });
   } catch (error) {
+    console.error('Search workers error:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -108,6 +109,66 @@ router.post('/', authorizeRole(['admin']), async (req, res) => {
   }
 });
 
+// ========== ATTENDANCE ROUTES (BEFORE :id routes) ==========
+
+// GET /api/workers/:id/attendance
+router.get('/:id/attendance', async (req, res) => {
+  try {
+    const limit = 31; // One month max
+    const month = req.query.month || new Date().toISOString().slice(0, 7); // YYYY-MM
+    
+    const startDate = `${month}-01`;
+    const endDate = `${month}-31`;
+
+    const attendance = await sql`
+      SELECT id, date, status, location_note, event_id
+      FROM attendance
+      WHERE worker_id = ${req.params.id} AND date >= ${startDate} AND date <= ${endDate}
+      ORDER BY date DESC
+      LIMIT ${limit}
+    `;
+    
+    res.json({ data: attendance });
+  } catch (error) {
+    console.error('Attendance fetch error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// POST /api/workers/:id/attendance - Manual override (Admin/Manager)
+router.post('/:id/attendance', async (req, res) => {
+  try {
+    const { date, status, location_note } = req.body;
+    if (!date || !status) return res.status(400).json({ error: 'Date and status required' });
+
+    await sql`
+      INSERT INTO attendance (worker_id, date, status, location_note, marked_by)
+      VALUES (${req.params.id}, ${date}, ${status}, ${location_note || 'Godown'}, ${req.user.user_id})
+      ON CONFLICT (worker_id, date) DO UPDATE 
+      SET status = EXCLUDED.status, location_note = EXCLUDED.location_note, marked_by = EXCLUDED.marked_by
+    `;
+    
+    res.json({ message: 'Attendance updated' });
+  } catch (error) {
+    console.error('Attendance update error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// GET /api/workers/:id/attendance/pdf - Generates PDF (stub handled later or here)
+router.get('/:id/attendance/pdf', authorizeRole(['admin']), async (req, res) => {
+  try {
+    // Generate PDF logic will go here
+    const { generateWorkerAttendancePDF } = require('../utils/pdfGenerator');
+    await generateWorkerAttendancePDF(req.params.id, req.query.month, res);
+  } catch (error) {
+    console.error('PDF error', error);
+    res.status(500).json({ error: 'PDF generation failed' });
+  }
+});
+
+// ========== SINGLE WORKER ROUTES (AFTER specific sub-routes) ==========
+
 // GET /api/workers/:id
 router.get('/:id', async (req, res) => {
   try {
@@ -124,6 +185,7 @@ router.get('/:id', async (req, res) => {
     
     res.json(worker);
   } catch (error) {
+    console.error('Get worker error:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -167,64 +229,8 @@ router.delete('/:id', authorizeRole(['admin']), async (req, res) => {
     await sql`DELETE FROM workers WHERE worker_id = ${req.params.id}`;
     res.json({ message: 'Worker deleted' });
   } catch (error) {
+    console.error('Delete worker error:', error);
     res.status(400).json({ error: 'Cannot delete worker. Unlink from events or user first.' });
-  }
-});
-
-// ATTENDANCE
-
-// GET /api/workers/:id/attendance
-router.get('/:id/attendance', async (req, res) => {
-  try {
-    const limit = 31; // One month max
-    const month = req.query.month || new Date().toISOString().slice(0, 7); // YYYY-MM
-    
-    const startDate = `${month}-01`;
-    const endDate = `${month}-31`;
-
-    const attendance = await sql`
-      SELECT id, date, status, location_note, event_id
-      FROM attendance
-      WHERE worker_id = ${req.params.id} AND date >= ${startDate} AND date <= ${endDate}
-      ORDER BY date DESC
-      LIMIT ${limit}
-    `;
-    
-    res.json({ data: attendance });
-  } catch (error) {
-    console.error('Attendance fetch error:', error);
-    res.status(500).json({ error: 'Internal server error' });
-  }
-});
-
-// POST /api/workers/:id/attendance - Manual override (Admin/Manager)
-router.post('/:id/attendance', async (req, res) => {
-  try {
-    const { date, status, location_note } = req.body;
-    if (!date || !status) return res.status(400).json({ error: 'Date and status required' });
-
-    await sql`
-      INSERT INTO attendance (worker_id, date, status, location_note, marked_by)
-      VALUES (${req.params.id}, ${date}, ${status}, ${location_note || 'Godown'}, ${req.user.user_id})
-      ON CONFLICT (worker_id, date) DO UPDATE 
-      SET status = EXCLUDED.status, location_note = EXCLUDED.location_note, marked_by = EXCLUDED.marked_by
-    `;
-    
-    res.json({ message: 'Attendance updated' });
-  } catch (error) {
-    res.status(500).json({ error: 'Internal server error' });
-  }
-});
-
-// GET /api/workers/:id/attendance/pdf - Generates PDF (stub handled later or here)
-router.get('/:id/attendance/pdf', authorizeRole(['admin']), async (req, res) => {
-  try {
-    // Generate PDF logic will go here
-    const { generateWorkerAttendancePDF } = require('../utils/pdfGenerator');
-    await generateWorkerAttendancePDF(req.params.id, req.query.month, res);
-  } catch (error) {
-    console.error('PDF error', error);
-    res.status(500).json({ error: 'PDF generation failed' });
   }
 });
 
