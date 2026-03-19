@@ -1,4 +1,5 @@
 const express = require('express');
+const path = require('path');
 const cors = require('cors');
 const helmet = require('helmet');
 const cookieParser = require('cookie-parser');
@@ -24,7 +25,7 @@ app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 
 // Static Files - Registered BEFORE API routes so frontend loads without CSRF/auth issues initially
-app.use(express.static('public'));
+app.use(express.static(path.join(__dirname, 'public')));
 
 // CSRF Protection configuration (using cookie for token)
 const csrfProtection = csurf({ cookie: { httpOnly: true, secure: process.env.NODE_ENV === 'production', sameSite: 'strict' } });
