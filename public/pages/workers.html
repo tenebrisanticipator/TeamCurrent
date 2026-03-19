@@ -14,7 +14,7 @@
   <!-- Add Worker Modal -->
   <div class="modal-backdrop" id="worker-modal" onclick="if(event.target===this) toggleModal('worker-modal', false)">
     <div class="modal-card">
-      <h3 class="card-title" style="color:var(--white); font-size:20px;">Onboard New Worker</h3>
+      <h3 class="card-title" style="color:var(--white); font-size:20px;" id="worker-modal-title">Onboard New Worker</h3>
       <form id="worker-form" class="mt-20">
         <div class="form-group">
           <label>Full Name</label>
@@ -34,13 +34,57 @@
           <label>Phone Number</label>
           <input type="text" id="phone" class="form-control" required>
         </div>
+        <div class="form-group">
+          <label>Address</label>
+          <input type="text" id="address" class="form-control" placeholder="Optional">
+        </div>
         <div class="form-group mb-20">
           <label>Aadhaar Card (12 Digits) - Will be stored encrypted</label>
           <input type="text" id="aadhaar_number" class="form-control" pattern="^[0-9]{12}$" placeholder="0000 0000 0000" required>
         </div>
+        <div class="form-group mb-20">
+          <label>
+            <input type="checkbox" id="is_active"> Is Active
+          </label>
+        </div>
         <div class="flex gap-10 mt-20">
           <button type="submit" class="btn btn-primary" id="submit-btn" style="flex:1;">Register Worker</button>
           <button type="button" class="btn btn-outline" onclick="toggleModal('worker-modal', false)" style="flex:1;">Cancel</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Attendance Modal -->
+  <div class="modal-backdrop" id="attendance-modal" onclick="if(event.target===this) toggleModal('attendance-modal', false)">
+    <div class="modal-card">
+      <h3 class="card-title" style="color:var(--white); font-size:20px;">Mark Attendance</h3>
+      <form id="attendance-form" class="mt-20">
+        <div class="form-group">
+          <label>Worker</label>
+          <input type="text" id="attendance-worker-name" class="form-control" disabled>
+        </div>
+        <div class="form-group">
+          <label>Date</label>
+          <input type="date" id="attendance-date" class="form-control" required>
+        </div>
+        <div class="form-group mb-20">
+          <label>Status</label>
+          <select id="attendance-status" class="form-control" required>
+            <option value="">Select Status</option>
+            <option value="present">Present</option>
+            <option value="absent">Absent</option>
+            <option value="half-day">Half Day</option>
+            <option value="leave">Leave</option>
+          </select>
+        </div>
+        <div class="form-group mb-20">
+          <label>Location Note</label>
+          <input type="text" id="attendance-location" class="form-control" placeholder="e.g., Godown, Site A" value="Godown">
+        </div>
+        <div class="flex gap-10 mt-20">
+          <button type="submit" class="btn btn-primary" id="attendance-submit-btn" style="flex:1;">Mark Attendance</button>
+          <button type="button" class="btn btn-outline" onclick="toggleModal('attendance-modal', false)" style="flex:1;">Cancel</button>
         </div>
       </form>
     </div>
@@ -112,9 +156,65 @@
   
   <script>
     let currentSearch = '';
+    let currentEditId = null;
 
     function toggleModal(id, show) {
       document.getElementById(id).classList.toggle('open', show);
+    }
+
+    async function viewWorkerDetails(workerId) {
+      try {
+        const worker = await window.api.get(`/api/workers/${workerId}`);
+        alert(`
+Worker Details
+---
+Code: ${worker.worker_code}
+Name: ${worker.name}
+Type: ${worker.worker_type}
+Phone: ${worker.phone}
+Address: ${worker.address || 'N/A'}
+Blood Group: ${worker.blood_group || 'N/A'}
+Status: ${worker.is_active ? 'Active' : 'Inactive'}
+Joined: ${worker.joined_date || 'N/A'}
+        `);
+      } catch(err) {
+        window.showToast(err.message, 'error');
+      }
+    }
+
+    async function editWorker(workerId) {
+      try {
+        const worker = await window.api.get(`/api/workers/${workerId}`);
+        currentEditId = workerId;
+        
+        // Populate form with existing data
+        document.getElementById('name').value = worker.name;
+        document.getElementById('worker_type').value = worker.worker_type;
+        document.getElementById('phone').value = worker.phone || '';
+        document.getElementById('address').value = worker.address || '';
+        document.getElementById('aadhaar_number').value = worker.aadhaar || '••••••••••••';
+        document.getElementById('is_active').checked = worker.is_active;
+        
+        // Hide daily_wage_base field if not needed
+        document.getElementById('daily_wage_base').style.display = 'none';
+        document.getElementById('worker-modal-title').textContent = 'Edit Worker';
+        document.getElementById('submit-btn').textContent = 'Update Worker';
+        
+        toggleModal('worker-modal', true);
+      } catch(err) {
+        window.showToast(err.message, 'error');
+      }
+    }
+
+    function markAttendance(workerId, workerName) {
+      document.getElementById('attendance-worker-name').value = workerName;
+      document.getElementById('attendance-form').dataset.workerId = workerId;
+      
+      // Set today's date by default
+      const today = new Date().toISOString().split('T')[0];
+      document.getElementById('attendance-date').value = today;
+      
+      toggleModal('attendance-modal', true);
     }
 
     async function loadData(cursor = null) {
@@ -153,7 +253,7 @@
           </td>
           <td>
             <div style="font-size: 14px;">${w.phone}</div>
-            <div style="font-size: 11px; color: var(--text-muted); cursor:pointer;" onclick="revealAadhaar('${w.worker_id}')" id="aadhaar-${w.worker_id}">[Show Aadhaar]</div>
+            <div style="font-size: 11px; color: var(--text-muted);">Active: ${w.is_active ? 'Yes' : 'No'}</div>
           </td>
           <td>
             ${w.current_event_id ? 
@@ -162,20 +262,16 @@
           </td>
           <td>
             <div class="flex gap-10">
-              <button class="btn btn-outline" style="padding: 4px 8px; font-size:12px;" onclick="downloadAttendance('${w.worker_id}')">Attendance PDF</button>
+              <button class="btn btn-outline" style="padding: 4px 8px; font-size:12px;" onclick="viewWorkerDetails('${w.worker_id}')">View</button>
+              <button class="btn btn-outline admin-only" style="padding: 4px 8px; font-size:12px;" onclick="editWorker('${w.worker_id}')">Edit</button>
+              <button class="btn btn-outline" style="padding: 4px 8px; font-size:12px;" onclick="markAttendance('${w.worker_id}', '${w.name}')">Attendance</button>
+              <button class="btn btn-outline" style="padding: 4px 8px; font-size:12px;" onclick="downloadAttendance('${w.worker_id}')">PDF</button>
             </div>
           </td>
         `;
         tbody.appendChild(tr);
       });
       window.checkRoleAccess();
-    }
-
-    async function revealAadhaar(id) {
-      try {
-        const res = await window.api.get(`/api/workers/${id}`);
-        document.getElementById(`aadhaar-${id}`).textContent = `Aadhaar: ${res.aadhaar_number}`;
-      } catch(err) { window.showToast(err.message, 'error'); }
     }
 
     function downloadAttendance(id) {
@@ -203,18 +299,33 @@
         try {
           btn.classList.add('loading');
           
-          let aadhaar = document.getElementById('aadhaar_number').value.replace(/s/g, '');
+          let aadhaar = document.getElementById('aadhaar_number').value.replace(/\s/g, '');
           
-          await window.api.post('/api/workers', {
+          const payload = {
             name: document.getElementById('name').value,
             worker_type: document.getElementById('worker_type').value,
             phone: document.getElementById('phone').value,
-            aadhaar_number: aadhaar,
-            daily_wage_base: document.getElementById('daily_wage_base').value || 0
-          });
-          window.showToast('Worker created successfully!');
+            address: document.getElementById('address').value,
+            aadhaar: aadhaar,
+            is_active: document.getElementById('is_active').checked
+          };
+
+          if (currentEditId) {
+            // Edit mode
+            await window.api.put(`/api/workers/${currentEditId}`, payload);
+            window.showToast('Worker updated successfully!');
+            currentEditId = null;
+          } else {
+            // Create mode
+            await window.api.post('/api/workers', payload);
+            window.showToast('Worker created successfully!');
+          }
+          
           toggleModal('worker-modal', false);
           document.getElementById('worker-form').reset();
+          document.getElementById('worker-modal-title').textContent = 'Onboard New Worker';
+          document.getElementById('submit-btn').textContent = 'Register Worker';
+          document.getElementById('daily_wage_base').style.display = 'block';
           window.resetPagination();
           loadData(null);
         } catch (err) {
@@ -223,6 +334,32 @@
           btn.classList.remove('loading');
         }
       });
+
+      // Attendance form submission
+      document.getElementById('attendance-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const btn = document.getElementById('attendance-submit-btn');
+        try {
+          btn.classList.add('loading');
+          const workerId = e.target.dataset.workerId;
+          
+          await window.api.post(`/api/workers/${workerId}/attendance`, {
+            date: document.getElementById('attendance-date').value,
+            status: document.getElementById('attendance-status').value,
+            location_note: document.getElementById('attendance-location').value
+          });
+          
+          window.showToast('Attendance marked successfully!');
+          toggleModal('attendance-modal', false);
+          document.getElementById('attendance-form').reset();
+        } catch (err) {
+          window.showToast(err.message, 'error');
+        } finally {
+          btn.classList.remove('loading');
+        }
+      });
+
+      window.checkRoleAccess();
     });
   </script>
 </body>
