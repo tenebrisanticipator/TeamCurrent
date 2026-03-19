@@ -7,14 +7,7 @@
   <link rel="stylesheet" href="/css/main.css">
   <link rel="stylesheet" href="/css/animations.css">
   <script src="/js/auth-guard.js"></script>
-  <script>
-    // Ensure non-admins cannot access this admin-only page
-    setTimeout(() => {
-      if (!window.currentUser || window.currentUser.role !== 'admin') {
-        window.location.href = '/pages/dashboard.html';
-      }
-    }, 100);
-  </script>
+  
 </head>
 <body>
   <div class="page-overlay"><div class="page-overlay-line"></div></div>
