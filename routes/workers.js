@@ -84,21 +84,21 @@ router.get('/', async (req, res) => {
 // POST /api/workers - Create worker (Admin)
 router.post('/', authorizeRole(['admin']), async (req, res) => {
   try {
-    const { name, phone, address, aadhaar, blood_group, worker_type, joined_date } = req.body;
+    const { name, phone, address, aadhaar, blood_group, worker_type, joined_date, daily_wage_base } = req.body;
     if (!name || !worker_type) {
       return res.status(400).json({ error: 'Name and Worker Type are required.' });
     }
 
     let aadhaarEncrypted = null;
-    if (aadhaar) {
+    if (aadhaar && aadhaar !== '••••••••••••') {
       aadhaarEncrypted = encrypt(aadhaar);
     }
 
     const workerCode = await generateWorkerId();
 
     const [worker] = await sql`
-      INSERT INTO workers (worker_code, name, phone, address, aadhaar_encrypted, blood_group, worker_type, joined_date)
-      VALUES (${workerCode}, ${name}, ${phone}, ${address}, ${aadhaarEncrypted}, ${blood_group}, ${worker_type}, ${joined_date || null})
+      INSERT INTO workers (worker_code, name, phone, address, aadhaar_encrypted, blood_group, worker_type, joined_date, daily_wage_base)
+      VALUES (${workerCode}, ${name}, ${phone}, ${address}, ${aadhaarEncrypted}, ${blood_group || null}, ${worker_type}, ${joined_date || null}, ${daily_wage_base || 0})
       RETURNING worker_id, worker_code, name, worker_type
     `;
     
@@ -170,7 +170,7 @@ router.get('/:id/attendance/pdf', authorizeRole(['admin']), async (req, res) => 
 // ========== SINGLE WORKER ROUTES (AFTER specific sub-routes) ==========
 
 // GET /api/workers/:id
-router.get('/:id', async (req, res) => {
+router.get('/:id', authorizeRole(['admin']), async (req, res) => {
   try {
     const workers = await sql`SELECT * FROM workers WHERE worker_id = ${req.params.id}`;
     if (workers.length === 0) return res.status(404).json({ error: 'Worker not found' });
@@ -178,7 +178,7 @@ router.get('/:id', async (req, res) => {
     const worker = workers[0];
     
     // Only admins see decrypted Aadhaar
-    if (req.user.role === 'admin' && worker.aadhaar_encrypted) {
+    if (worker.aadhaar_encrypted) {
       worker.aadhaar = decrypt(worker.aadhaar_encrypted);
     }
     delete worker.aadhaar_encrypted; // Never send ciphertext to frontend
@@ -193,7 +193,7 @@ router.get('/:id', async (req, res) => {
 // PUT /api/workers/:id
 router.put('/:id', authorizeRole(['admin']), async (req, res) => {
   try {
-    const { name, phone, address, aadhaar, blood_group, worker_type, is_active, joined_date } = req.body;
+    const { name, phone, address, aadhaar, blood_group, worker_type, is_active, joined_date, daily_wage_base } = req.body;
     
     let query;
     if (aadhaar && aadhaar !== '••••••••••••') {
@@ -201,14 +201,16 @@ router.put('/:id', authorizeRole(['admin']), async (req, res) => {
       query = sql`
         UPDATE workers SET 
           name = ${name}, phone = ${phone}, address = ${address}, aadhaar_encrypted = ${aadhaarEncrypted}, 
-          blood_group = ${blood_group}, worker_type = ${worker_type}, is_active = ${is_active}, joined_date = ${joined_date}
+          blood_group = ${blood_group || null}, worker_type = ${worker_type}, is_active = ${is_active}, 
+          joined_date = ${joined_date || null}, daily_wage_base = ${daily_wage_base || 0}
         WHERE worker_id = ${req.params.id} RETURNING worker_id
       `;
     } else {
       query = sql`
         UPDATE workers SET 
           name = ${name}, phone = ${phone}, address = ${address}, 
-          blood_group = ${blood_group}, worker_type = ${worker_type}, is_active = ${is_active}, joined_date = ${joined_date}
+          blood_group = ${blood_group || null}, worker_type = ${worker_type}, is_active = ${is_active}, 
+          joined_date = ${joined_date || null}, daily_wage_base = ${daily_wage_base || 0}
         WHERE worker_id = ${req.params.id} RETURNING worker_id
       `;
     }

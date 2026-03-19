@@ -6,7 +6,55 @@
   <link rel="icon" href="/favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="/css/main.css">
   <link rel="stylesheet" href="/css/animations.css">
-  <script src="/js/auth-guard.js"></script>
+// Immediately hide document body until auth check completes
+document.documentElement.style.visibility = 'hidden';
+
+(async function() {
+  try {
+    const res = await fetch('/api/auth/verify');
+    if (!res.ok) {
+      window.location.href = '/pages/login.html';
+      return;
+    }
+    const data = await res.json();
+    window.currentUser = data.user;
+    
+    // Check if user is admin (only admins can access this page)
+    if (data.user.role !== 'admin') {
+      window.location.href = '/pages/dashboard.html';
+      return;
+    }
+    
+    // Auth complete, show page, trigger entry animations
+    document.documentElement.style.visibility = '';
+    
+    // Populate user info and setup logout
+    const setupUI = () => {
+      const userNameEl = document.getElementById('header-user-name');
+      const userRoleEl = document.getElementById('header-user-role');
+      if(userNameEl) userNameEl.textContent = data.user.name;
+      if(userRoleEl) userRoleEl.textContent = data.user.role;
+      
+      // Setup logout
+      const logoutBtn = document.getElementById('sidebar-logout-btn');
+      if (logoutBtn) {
+        logoutBtn.addEventListener('click', async () => {
+          await fetch('/api/auth/logout', { method: 'POST' });
+          window.location.href = '/pages/login.html';
+        });
+      }
+    };
+
+    if (document.readyState === 'loading') {
+      window.addEventListener('DOMContentLoaded', setupUI);
+    } else {
+      setupUI();
+    }
+
+  } catch (error) {
+    window.location.href = '/pages/login.html';
+  }
+})();
 </head>
 <body>
   <div class="page-overlay"><div class="page-overlay-line"></div></div>
@@ -26,21 +74,43 @@
             <input type="text" id="worker_type" class="form-control" placeholder="e.g. Rigger, Tech..." required>
           </div>
           <div class="form-group" style="flex:1;">
-            <label>Daily Wage Base (â‚¹)</label>
+            <label>Daily Wage Base (₹)</label>
             <input type="number" id="daily_wage_base" class="form-control" min="0">
           </div>
         </div>
-        <div class="form-group">
-          <label>Phone Number</label>
-          <input type="text" id="phone" class="form-control" required>
+        <div class="flex gap-10">
+          <div class="form-group" style="flex:1;">
+            <label>Phone Number</label>
+            <input type="text" id="phone" class="form-control" required>
+          </div>
+          <div class="form-group" style="flex:1;">
+            <label>Blood Group</label>
+            <select id="blood_group" class="form-control">
+              <option value="">Select Blood Group</option>
+              <option value="O+">O+</option>
+              <option value="O-">O-</option>
+              <option value="A+">A+</option>
+              <option value="A-">A-</option>
+              <option value="B+">B+</option>
+              <option value="B-">B-</option>
+              <option value="AB+">AB+</option>
+              <option value="AB-">AB-</option>
+            </select>
+          </div>
         </div>
         <div class="form-group">
           <label>Address</label>
           <input type="text" id="address" class="form-control" placeholder="Optional">
         </div>
-        <div class="form-group mb-20">
-          <label>Aadhaar Card (12 Digits) - Will be stored encrypted</label>
-          <input type="text" id="aadhaar_number" class="form-control" pattern="^[0-9]{12}$" placeholder="0000 0000 0000" required>
+        <div class="flex gap-10">
+          <div class="form-group" style="flex:1;">
+            <label>Aadhaar Card (12 Digits)</label>
+            <input type="text" id="aadhaar_number" class="form-control" pattern="^[0-9]{12}$" placeholder="0000 0000 0000" required>
+          </div>
+          <div class="form-group" style="flex:1;">
+            <label>Joined Date</label>
+            <input type="date" id="joined_date" class="form-control">
+          </div>
         </div>
         <div class="form-group mb-20">
           <label>
@@ -167,7 +237,6 @@
       document.getElementById('worker-form').reset();
       document.getElementById('worker-modal-title').textContent = 'Onboard New Worker';
       document.getElementById('submit-btn').textContent = 'Register Worker';
-      document.getElementById('daily_wage_base').style.display = 'block';
       document.getElementById('is_active').checked = false;
       toggleModal('worker-modal', false);
     }
@@ -179,7 +248,6 @@
       document.getElementById('worker-modal-title').textContent = 'Onboard New Worker';
       document.getElementById('submit-btn').textContent = 'Register Worker';
       document.getElementById('submit-btn').classList.remove('loading');
-      document.getElementById('daily_wage_base').style.display = 'block';
       document.getElementById('is_active').checked = false;
       
       toggleModal('worker-modal', true);
@@ -217,9 +285,10 @@ Joined: ${worker.joined_date || 'N/A'}
         document.getElementById('address').value = worker.address || '';
         document.getElementById('aadhaar_number').value = worker.aadhaar || '••••••••••••';
         document.getElementById('is_active').checked = worker.is_active;
+        document.getElementById('daily_wage_base').value = worker.daily_wage_base || '';
+        document.getElementById('blood_group').value = worker.blood_group || '';
+        document.getElementById('joined_date').value = worker.joined_date || '';
         
-        // Hide daily_wage_base field if not needed
-        document.getElementById('daily_wage_base').style.display = 'none';
         document.getElementById('worker-modal-title').textContent = 'Edit Worker';
         document.getElementById('submit-btn').textContent = 'Update Worker';
         
@@ -330,6 +399,9 @@ Joined: ${worker.joined_date || 'N/A'}
             phone: document.getElementById('phone').value,
             address: document.getElementById('address').value,
             aadhaar: aadhaar,
+            blood_group: document.getElementById('blood_group').value || null,
+            joined_date: document.getElementById('joined_date').value || null,
+            daily_wage_base: document.getElementById('daily_wage_base').value || 0,
             is_active: document.getElementById('is_active').checked
           };
 
@@ -348,7 +420,6 @@ Joined: ${worker.joined_date || 'N/A'}
           document.getElementById('worker-form').reset();
           document.getElementById('worker-modal-title').textContent = 'Onboard New Worker';
           document.getElementById('submit-btn').textContent = 'Register Worker';
-          document.getElementById('daily_wage_base').style.display = 'block';
           currentEditId = null;
           window.resetPagination();
           loadData(null);
