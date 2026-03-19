@@ -7,6 +7,14 @@
   <link rel="stylesheet" href="/css/main.css">
   <link rel="stylesheet" href="/css/animations.css">
   <script src="/js/auth-guard.js"></script>
+  <script>
+    // SECURITY: Restrict inventory edit to admin only
+    window.addEventListener('load', () => {
+      if (!window.checkPageAccess(['admin'])) {
+        return; // User will be redirected by checkPageAccess
+      }
+    });
+  </script>
 </head>
 <body>
   <div class="page-overlay"><div class="page-overlay-line"></div></div>

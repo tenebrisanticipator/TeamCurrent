@@ -112,7 +112,7 @@
         <div class="stagger-in" style="--i:1;">
           <div class="flex justify-between items-center mb-10">
             <h2 style="font-size:18px;">Assigned Equipment</h2>
-            <button class="btn btn-primary" style="padding:4px 12px; font-size:12px;" onclick="toggleModal('outward-modal', true)">+ Assign Gear</button>
+            <button class="btn btn-primary admin-only" style="padding:4px 12px; font-size:12px;" onclick="toggleModal('outward-modal', true)">+ Assign Gear</button>
           </div>
           
           <div class="card" style="min-height: 400px; padding: 15px;">
@@ -180,6 +180,19 @@
 
     async function loadWorkspace() {
       if (!eventId) return window.location.href = '/pages/events.html';
+      
+      // Wait for auth to complete if not ready
+      if (!window.currentUser) {
+        console.warn('Waiting for auth to complete...');
+        return setTimeout(loadWorkspace, 100);
+      }
+      
+      // SECURITY: Only admins and managers can access event-detail page
+      if (!window.hasAnyRole(['admin', 'manager'])) {
+        window.location.href = '/pages/dashboard.html';
+        return;
+      }
+
       try {
         const ev = await window.api.get(`/api/events/${eventId}`);
         
@@ -189,12 +202,20 @@
         const statusSelect = document.getElementById('status-select');
         statusSelect.value = ev.status;
         
-        // Disable return buttons if event is totally closed, logic applies
-        
-        if (window.currentUser && window.currentUser.role === 'admin') {
+        // SECURITY: Only admins can modify - managers get read-only access
+        if (window.hasRole('admin')) {
+          // ADMIN: Full access to all controls
           const btn = document.getElementById('download-pdf-btn');
           btn.classList.remove('hidden');
           btn.onclick = () => window.open(`/api/events/${eventId}/challan/pdf`, '_blank');
+          statusSelect.disabled = false;
+        } else {
+          // MANAGER: Read-only mode - cannot modify status, assign workers, or modify equipment
+          statusSelect.disabled = true;
+          document.querySelectorAll('.admin-only').forEach(el => {
+            if (el.id === 'download-pdf-btn') el.classList.add('hidden');
+            el.style.display = 'none';
+          });
         }
 
         renderEquipment(ev.items || []);
@@ -220,7 +241,7 @@
 
         let actionHtml = '';
         if (!isFullyReturned) {
-          actionHtml = `<button class="btn btn-outline" style="padding:4px 8px; font-size:12px;" onclick="openReturnModal('${it.item_id}', '${it.item_name}', ${remaining})">Return</button>`;
+          actionHtml = `<button class="btn btn-outline" style="padding:4px 8px; font-size:12px;" onclick="openReturnModal('${it.id}', '${it.item_name}', ${remaining})">Return</button>`;
         }
 
         container.innerHTML += `
@@ -333,9 +354,8 @@
         try {
           btn.classList.add('loading');
           await window.api.post(`/api/events/${eventId}/return-stock`, {
-            item_id: document.getElementById('return_item_id').value,
-            quantity_returned: parseInt(document.getElementById('return_quantity').value),
-            quantity_missing: parseInt(document.getElementById('missing_quantity').value)
+            event_item_id: document.getElementById('return_item_id').value,
+            quantity_returned: parseInt(document.getElementById('return_quantity').value)
           });
           window.showToast('Return logged successfully');
           toggleModal('inward-modal', false);

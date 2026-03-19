@@ -179,7 +179,12 @@ router.get('/:id', authorizeRole(['admin']), async (req, res) => {
     
     // Only admins see decrypted Aadhaar
     if (worker.aadhaar_encrypted) {
-      worker.aadhaar = decrypt(worker.aadhaar_encrypted);
+      try {
+        worker.aadhaar = decrypt(worker.aadhaar_encrypted);
+      } catch (decryptErr) {
+        console.error('Decryption error for worker', req.params.id, ':', decryptErr.message);
+        worker.aadhaar = '••••••••••••'; // Fallback to masked value if decryption fails
+      }
     }
     delete worker.aadhaar_encrypted; // Never send ciphertext to frontend
     
@@ -197,14 +202,19 @@ router.put('/:id', authorizeRole(['admin']), async (req, res) => {
     
     let query;
     if (aadhaar && aadhaar !== '••••••••••••') {
-      const aadhaarEncrypted = encrypt(aadhaar);
-      query = sql`
-        UPDATE workers SET 
-          name = ${name}, phone = ${phone}, address = ${address}, aadhaar_encrypted = ${aadhaarEncrypted}, 
-          blood_group = ${blood_group || null}, worker_type = ${worker_type}, is_active = ${is_active}, 
-          joined_date = ${joined_date || null}, daily_wage_base = ${daily_wage_base || 0}
-        WHERE worker_id = ${req.params.id} RETURNING worker_id
-      `;
+      try {
+        const aadhaarEncrypted = encrypt(aadhaar);
+        query = sql`
+          UPDATE workers SET 
+            name = ${name}, phone = ${phone}, address = ${address}, aadhaar_encrypted = ${aadhaarEncrypted}, 
+            blood_group = ${blood_group || null}, worker_type = ${worker_type}, is_active = ${is_active}, 
+            joined_date = ${joined_date || null}, daily_wage_base = ${daily_wage_base || 0}
+          WHERE worker_id = ${req.params.id} RETURNING worker_id
+        `;
+      } catch (encryptErr) {
+        console.error('Encryption error:', encryptErr.message);
+        return res.status(500).json({ error: 'Encryption failed: ' + encryptErr.message });
+      }
     } else {
       query = sql`
         UPDATE workers SET 

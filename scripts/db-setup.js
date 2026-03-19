@@ -88,6 +88,7 @@ async function setupDatabase() {
         aadhaar_encrypted TEXT,
         blood_group VARCHAR,
         worker_type VARCHAR CHECK (worker_type IN ('manager','normal','driver')),
+        daily_wage_base DECIMAL(10,2) DEFAULT 0,
         is_active BOOLEAN DEFAULT true,
         joined_date DATE,
         created_at TIMESTAMP DEFAULT NOW()

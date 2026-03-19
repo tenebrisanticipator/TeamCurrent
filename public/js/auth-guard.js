@@ -11,6 +11,23 @@ document.documentElement.style.visibility = 'hidden';
     const data = await res.json();
     window.currentUser = data.user;
     
+    // SECURITY: Provide role-checking functions for page-level access control
+    window.checkPageAccess = function(allowedRoles) {
+      if (!window.currentUser || !allowedRoles.includes(window.currentUser.role)) {
+        window.location.href = '/pages/dashboard.html';
+        return false;
+      }
+      return true;
+    };
+
+    window.hasRole = function(role) {
+      return window.currentUser && window.currentUser.role === role;
+    };
+
+    window.hasAnyRole = function(roles) {
+      return window.currentUser && roles.includes(window.currentUser.role);
+    };
+    
     // Auth complete, show page, trigger entry animations
     document.documentElement.style.visibility = '';
     
@@ -21,7 +38,7 @@ document.documentElement.style.visibility = 'hidden';
       if(userNameEl) userNameEl.textContent = data.user.name;
       if(userRoleEl) userRoleEl.textContent = data.user.role;
       
-      // Hide admin-only sidebar items for non-admins (SECURITY: prevents unauthorized access)
+      // SECURITY: Hide admin-only sidebar items for non-admins (prevents unauthorized access attempts)
       if (data.user.role !== 'admin') {
         document.querySelectorAll('.admin-only').forEach(el => el.remove());
       }
