@@ -167,6 +167,11 @@ router.patch('/:id/adjust-quantity', authorizeRole(['admin', 'manager']), async 
     const { amount_change } = req.body; // e.g. +5 or -3
     if (typeof amount_change !== 'number') return res.status(400).json({ error: 'Invalid amount' });
 
+    // Ensure managers cannot subtract stock
+    if (amount_change < 0 && req.user.role === 'manager') {
+      return res.status(403).json({ error: 'Managers are not allowed to reduce stock manually.' });
+    }
+
     const [item] = await sql`
       UPDATE items SET 
         available_quantity = available_quantity + ${amount_change},

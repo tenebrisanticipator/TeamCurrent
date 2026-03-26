@@ -7,17 +7,25 @@
   <link rel="stylesheet" href="/css/main.css">
   <link rel="stylesheet" href="/css/animations.css">
   <script src="/js/auth-guard.js"></script>
+  <script>document.addEventListener("DOMContentLoaded", () => { if(window.checkPageAccess) window.checkPageAccess(["admin"]); });</script>
 </head>
 <body>
   <div class="page-overlay"><div class="page-overlay-line"></div></div>
   <div class="app-container">
-    <aside class="sidebar sidebar-enter">
+        <aside class="sidebar sidebar-enter">
       <div class="sidebar-header"><div class="logo-badge">TC</div><div class="brand-name">CURRENT</div></div>
       <nav class="nav-menu">
         <a href="/pages/dashboard.html" class="nav-item">Dashboard</a>
-        <a href="/pages/inventory.html" class="nav-item active">Inventory</a>
-      <a href="javascript:void(0)" id="sidebar-logout-btn" class="nav-item" style="margin-top:auto; color:var(--danger); border-top:1px solid var(--border);">Log Out</a>
+        <a href="/pages/inventory.html" class="nav-item">Inventory</a>
+        <a href="/pages/purchases.html" class="nav-item">Purchases</a>
+        <a href="/pages/events.html" class="nav-item">Events</a>
+        <a href="/pages/workers.html" class="nav-item admin-only">Workers & Attendance</a>
+        <a href="/pages/users.html" class="nav-item admin-only">User Management</a>
+        <a href="javascript:void(0)" id="sidebar-logout-btn" class="nav-item" style="margin-top:auto; color:var(--danger); border-top:1px solid var(--border);">Log Out</a>
       </nav>
+      <div class="sidebar-footer">
+        <svg class="truss-accent" viewBox="0 0 100 40"><path d="M0,40 L20,0 L40,40 M20,0 L100,0 M40,40 L100,40 M20,0 L40,40 M40,0 L60,40 M60,0 L80,40 M80,0 L100,40"/></svg>
+      </div>
     </aside>
     <main class="main-content">
       <header class="header header-enter">

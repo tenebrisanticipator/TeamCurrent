@@ -79,15 +79,20 @@
   </div>
 
   <div class="app-container">
-    <aside class="sidebar sidebar-enter">
+        <aside class="sidebar sidebar-enter">
       <div class="sidebar-header"><div class="logo-badge">TC</div><div class="brand-name">CURRENT</div></div>
       <nav class="nav-menu">
         <a href="/pages/dashboard.html" class="nav-item">Dashboard</a>
         <a href="/pages/inventory.html" class="nav-item">Inventory</a>
         <a href="/pages/purchases.html" class="nav-item">Purchases</a>
         <a href="/pages/events.html" class="nav-item active">Events</a>
-      <a href="javascript:void(0)" id="sidebar-logout-btn" class="nav-item" style="margin-top:auto; color:var(--danger); border-top:1px solid var(--border);">Log Out</a>
+        <a href="/pages/workers.html" class="nav-item admin-only">Workers & Attendance</a>
+        <a href="/pages/users.html" class="nav-item admin-only">User Management</a>
+        <a href="javascript:void(0)" id="sidebar-logout-btn" class="nav-item" style="margin-top:auto; color:var(--danger); border-top:1px solid var(--border);">Log Out</a>
       </nav>
+      <div class="sidebar-footer">
+        <svg class="truss-accent" viewBox="0 0 100 40"><path d="M0,40 L20,0 L40,40 M20,0 L100,0 M40,40 L100,40 M20,0 L40,40 M40,0 L60,40 M60,0 L80,40 M80,0 L100,40"/></svg>
+      </div>
     </aside>
 
     <main class="main-content" style="padding: 20px 30px;">
@@ -112,7 +117,7 @@
         <div class="stagger-in" style="--i:1;">
           <div class="flex justify-between items-center mb-10">
             <h2 style="font-size:18px;">Assigned Equipment</h2>
-            <button class="btn btn-primary admin-only" style="padding:4px 12px; font-size:12px;" onclick="toggleModal('outward-modal', true)">+ Assign Gear</button>
+            <button class="btn btn-primary" style="padding:4px 12px; font-size:12px;" onclick="toggleModal('outward-modal', true)">+ Assign Gear</button>
           </div>
           
           <div class="card" style="min-height: 400px; padding: 15px;">
@@ -197,25 +202,15 @@
         const ev = await window.api.get(`/api/events/${eventId}`);
         
         document.getElementById('event-name').textContent = ev.event_name;
-        document.getElementById('event-subtext').textContent = `${ev.client_company} â€¢ ${ev.place} â€¢ ${window.formatDateISTOnly(ev.event_date)}`;
+        document.getElementById('event-subtext').textContent = `${ev.client_company || 'No Company'} • ${ev.place || 'No Place'} • ${ev.event_date ? window.formatDateISTOnly(ev.event_date) : '-'}`;
         
         const statusSelect = document.getElementById('status-select');
         statusSelect.value = ev.status;
         
-        // SECURITY: Only admins can modify - managers get read-only access
-        if (window.hasRole('admin')) {
-          // ADMIN: Full access to all controls
-          const btn = document.getElementById('download-pdf-btn');
-          btn.classList.remove('hidden');
-          btn.onclick = () => window.open(`/api/events/${eventId}/challan/pdf`, '_blank');
-          statusSelect.disabled = false;
-        } else {
-          // MANAGER: Read-only mode - cannot modify status, assign workers, or modify equipment
-          statusSelect.disabled = true;
-          document.querySelectorAll('.admin-only').forEach(el => {
-            if (el.id === 'download-pdf-btn') el.classList.add('hidden');
-            el.style.display = 'none';
-          });
+        const pdfBtn = document.getElementById('download-pdf-btn');
+        if (pdfBtn) {
+          pdfBtn.classList.remove('hidden');
+          pdfBtn.onclick = () => window.open(`/api/events/${eventId}/challan/pdf`, '_blank');
         }
 
         renderEquipment(ev.items || []);
@@ -231,13 +226,15 @@
       container.innerHTML = '';
       if(items.length === 0) return container.innerHTML = '<div class="text-muted text-center" style="margin-top: 50px;">No equipment assigned yet.</div>';
 
-      items.forEach(it => {
-        const remaining = it.quantity_assigned - it.quantity_returned - it.quantity_missing;
-        const isFullyReturned = remaining === 0;
+            items.forEach(it => {
+        // Since quantity_missing in DB is auto-calculated as (assigned - returned), 
+        // the remaining items to return is exactly that missing quantity.
+        const remaining = it.quantity_assigned - it.quantity_returned;
+        const isFullyReturned = remaining <= 0;
         
         let classStr = 'list-item';
         if (isFullyReturned) classStr += ' returned';
-        if (it.quantity_missing > 0 && isFullyReturned) classStr = 'list-item missing';
+        if (remaining > 0) classStr = 'list-item missing';
 
         let actionHtml = '';
         if (!isFullyReturned) {
@@ -249,7 +246,7 @@
             <div>
               <div style="font-weight:bold; font-size:14px;">${it.item_name}</div>
               <div style="font-size:12px; color:var(--text-muted); margin-top:2px;">
-                Assigned: ${it.quantity_assigned} | Ret: ${it.quantity_returned} ${it.quantity_missing > 0 ? '| Miss: '+it.quantity_missing : ''}
+                Assigned: ${it.quantity_assigned} | Ret: ${it.quantity_returned} ${remaining > 0 ? '| Pending: '+remaining : ''}
               </div>
             </div>
             <div>
