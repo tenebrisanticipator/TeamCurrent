@@ -108,6 +108,7 @@
             <option value="closed">Status: Closed</option>
           </select>
           <button id="download-pdf-btn" class="btn btn-primary admin-only hidden">Delivery Challan PDF</button>
+          <button id="download-logs-pdf-btn" class="btn btn-outline admin-only hidden">Challan with Logs</button>
           <a href="/pages/events.html" class="btn btn-outline" style="padding: 6px 12px;">Back</a>
         </div>
       </header>
@@ -211,6 +212,12 @@
         if (pdfBtn) {
           pdfBtn.classList.remove('hidden');
           pdfBtn.onclick = () => window.open(`/api/events/${eventId}/challan/pdf`, '_blank');
+        }
+
+        const logsPdfBtn = document.getElementById('download-logs-pdf-btn');
+        if (logsPdfBtn) {
+          logsPdfBtn.classList.remove('hidden');
+          logsPdfBtn.onclick = () => window.open(`/api/events/${eventId}/challan/logs/pdf`, '_blank');
         }
 
         renderEquipment(ev.items || []);

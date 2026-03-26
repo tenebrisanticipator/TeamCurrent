@@ -155,6 +155,167 @@ async function generateEventChallanPDF(eventId, res) {
   doc.end();
 }
 
+async function generateEventChallanWithLogsPDF(eventId, res) {
+  const events = await sql`
+    SELECT e.*, u.name as admin_name FROM events e 
+    LEFT JOIN users u ON e.created_by = u.user_id 
+    WHERE e.event_id = ${eventId}
+  `;
+  if (events.length === 0) return res.status(404).json({ error: 'Event not found' });
+  const ev = events[0];
+
+  const items = await sql`
+    SELECT ei.*, i.name as item_name, i.unit, 
+           ua.name as assigned_by_name, ur.name as returned_by_name
+    FROM event_items ei 
+    JOIN items i ON ei.item_id = i.item_id
+    LEFT JOIN users ua ON ei.assigned_by = ua.user_id
+    LEFT JOIN users ur ON ei.returned_by = ur.user_id
+    WHERE ei.event_id = ${eventId}
+  `;
+
+  const workers = await sql`
+    SELECT ew.*, w.name as worker_name, w.worker_code, ua.name as assigned_by_name
+    FROM event_workers ew
+    JOIN workers w ON ew.worker_id = w.worker_id
+    LEFT JOIN users ua ON ew.assigned_by = ua.user_id
+    WHERE ew.event_id = ${eventId}
+  `;
+
+  const doc = new PDFDocument({ margin: 50 });
+  res.setHeader('Content-disposition', `attachment; filename="Delivery_Challan_With_Logs_${eventId}.pdf"`);
+  res.setHeader('Content-type', 'application/pdf');
+  doc.pipe(res);
+
+  drawHeader(doc, 'DELIVERY CHALLAN WITH LOGS');
+
+  doc.fontSize(12).font('Helvetica-Bold').text('Event Information:', 50, doc.y);
+  doc.font('Helvetica')
+     .text(`Event Name: ${ev.event_name}`)
+     .text(`Client: ${ev.client_company}`)
+     .text(`Venue: ${ev.place}`)
+     .text(`Date: ${new Date(ev.event_date).toLocaleDateString('en-IN')} ${ev.event_time}`)
+     .text(`Status: ${ev.status.toUpperCase()}`);
+
+  doc.moveDown(2);
+  doc.font('Helvetica-Bold').text('Equipment Assignment Logs:', 50, doc.y);
+  
+  const tableTop = doc.y + 10;
+  doc.rect(50, tableTop, 500, 25).fill('#1A3048');
+  doc.fillColor('#FFFFFF').font('Helvetica-Bold');
+  doc.text('Item Name', 60, tableTop + 7);
+  doc.text('Qty', 250, tableTop + 7);
+  doc.text('Assigned By', 300, tableTop + 7);
+  doc.text('Assigned At', 400, tableTop + 7);
+
+  doc.fillColor('#2C2C2C').font('Helvetica');
+  let currentY = tableTop + 25;
+  
+  items.forEach((it, idx) => {
+    doc.rect(50, currentY, 500, 25).stroke('#1E3A52');
+    doc.text(it.item_name, 60, currentY + 7);
+    doc.text(`${it.quantity_assigned} ${it.unit}`, 250, currentY + 7);
+    doc.text(it.assigned_by_name || 'Unknown', 300, currentY + 7);
+    doc.text(it.assigned_at ? new Date(it.assigned_at).toLocaleString('en-IN') : '-', 400, currentY + 7);
+    currentY += 25;
+    
+    // Add new page if table runs too long
+    if (currentY > doc.page.height - 100) {
+      doc.addPage();
+      currentY = 50;
+    }
+  });
+
+  doc.moveDown(2);
+  doc.font('Helvetica-Bold').text('Equipment Return Logs:', 50, doc.y);
+  
+  const returnTableTop = doc.y + 10;
+  doc.rect(50, returnTableTop, 500, 25).fill('#1A3048');
+  doc.fillColor('#FFFFFF').font('Helvetica-Bold');
+  doc.text('Item Name', 60, returnTableTop + 7);
+  doc.text('Returned Qty', 250, returnTableTop + 7);
+  doc.text('Returned By', 320, returnTableTop + 7);
+  doc.text('Returned At', 400, returnTableTop + 7);
+
+  doc.fillColor('#2C2C2C').font('Helvetica');
+  currentY = returnTableTop + 25;
+  
+  items.filter(it => it.quantity_returned > 0).forEach((it, idx) => {
+    doc.rect(50, currentY, 500, 25).stroke('#1E3A52');
+    doc.text(it.item_name, 60, currentY + 7);
+    doc.text(`${it.quantity_returned} ${it.unit}`, 250, currentY + 7);
+    doc.text(it.returned_by_name || 'Unknown', 320, currentY + 7);
+    doc.text(it.returned_at ? new Date(it.returned_at).toLocaleString('en-IN') : '-', 400, currentY + 7);
+    currentY += 25;
+    
+    // Add new page if table runs too long
+    if (currentY > doc.page.height - 100) {
+      doc.addPage();
+      currentY = 50;
+    }
+  });
+
+  doc.moveDown(2);
+  doc.font('Helvetica-Bold').text('Staff Assignment Logs:', 50, doc.y);
+  
+  const workerTableTop = doc.y + 10;
+  doc.rect(50, workerTableTop, 500, 25).fill('#1A3048');
+  doc.fillColor('#FFFFFF').font('Helvetica-Bold');
+  doc.text('Worker Name', 60, workerTableTop + 7);
+  doc.text('Code', 250, workerTableTop + 7);
+  doc.text('Assigned By', 300, workerTableTop + 7);
+  doc.text('Assigned At', 400, workerTableTop + 7);
+
+  doc.fillColor('#2C2C2C').font('Helvetica');
+  currentY = workerTableTop + 25;
+  
+  workers.forEach((w) => {
+    doc.rect(50, currentY, 500, 25).stroke('#1E3A52');
+    doc.text(w.worker_name, 60, currentY + 7);
+    doc.text(w.worker_code, 250, currentY + 7);
+    doc.text(w.assigned_by_name || 'Unknown', 300, currentY + 7);
+    doc.text(w.assigned_at ? new Date(w.assigned_at).toLocaleString('en-IN') : '-', 400, currentY + 7);
+    currentY += 25;
+    
+    // Add new page if table runs too long
+    if (currentY > doc.page.height - 100) {
+      doc.addPage();
+      currentY = 50;
+    }
+  });
+
+  doc.moveDown(2);
+  doc.font('Helvetica-Bold').text('Equipment Summary:', 50, doc.y);
+  const summaryTableTop = doc.y + 10;
+  doc.rect(50, summaryTableTop, 500, 25).fill('#1A3048');
+  doc.fillColor('#FFFFFF').font('Helvetica-Bold');
+  doc.text('Item Name', 60, summaryTableTop + 7);
+  doc.text('Assigned', 250, summaryTableTop + 7);
+  doc.text('Returned', 320, summaryTableTop + 7);
+  doc.text('Missing', 400, summaryTableTop + 7);
+
+  doc.fillColor('#2C2C2C').font('Helvetica');
+  currentY = summaryTableTop + 25;
+  
+  items.forEach((it, idx) => {
+    doc.rect(50, currentY, 500, 25).stroke('#1E3A52');
+    doc.text(it.item_name, 60, currentY + 7);
+    doc.text(`${it.quantity_assigned} ${it.unit}`, 250, currentY + 7);
+    doc.text(`${it.quantity_returned} ${it.unit}`, 320, currentY + 7);
+    doc.text(`${it.quantity_missing} ${it.unit}`, 400, currentY + 7);
+    currentY += 25;
+    
+    // Add new page if table runs too long
+    if (currentY > doc.page.height - 100) {
+      doc.addPage();
+      currentY = 50;
+    }
+  });
+
+  drawFooter(doc, ev.admin_name || 'System Auto');
+  doc.end();
+}
+
 async function generateWorkerAttendancePDF(workerId, monthStr, res) {
   // monthStr is YYYY-MM
   const workers = await sql`SELECT worker_code, name, worker_type FROM workers WHERE worker_id = ${workerId}`;
@@ -212,4 +373,4 @@ async function generateWorkerAttendancePDF(workerId, monthStr, res) {
   doc.end();
 }
 
-module.exports = { generatePurchasePDF, generateEventChallanPDF, generateWorkerAttendancePDF };
+module.exports = { generatePurchasePDF, generateEventChallanPDF, generateEventChallanWithLogsPDF, generateWorkerAttendancePDF };

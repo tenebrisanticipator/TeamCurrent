@@ -3,7 +3,7 @@ const router = express.Router();
 const { sql } = require('../config/db');
 const authenticateToken = require('../middleware/auth');
 const authorizeRole = require('../middleware/roles');
-const { generateEventChallanPDF } = require('../utils/pdfGenerator');
+const { generateEventChallanPDF, generateEventChallanWithLogsPDF } = require('../utils/pdfGenerator');
 
 router.use(authenticateToken);
 
@@ -175,7 +175,7 @@ router.post('/:id/return-stock', authorizeRole(['admin', 'manager']), async (req
 
     // Update event_items
     await sql`
-      UPDATE event_items SET quantity_returned = ${newReturned}, returned_at = NOW()
+      UPDATE event_items SET quantity_returned = ${newReturned}, returned_at = NOW(), returned_by = ${req.user.user_id}
       WHERE id = ${event_item_id}
     `;
 
@@ -194,8 +194,8 @@ router.post('/:id/assign-worker', authorizeRole(['admin']), async (req, res) => 
     const { worker_id, role_note } = req.body;
     
     await sql`
-      INSERT INTO event_workers (event_id, worker_id, role_note)
-      VALUES (${req.params.id}, ${worker_id}, ${role_note || null})
+      INSERT INTO event_workers (event_id, worker_id, role_note, assigned_by)
+      VALUES (${req.params.id}, ${worker_id}, ${role_note || null}, ${req.user.user_id})
     `;
 
     // Also mark attendance as present with event location implicitly for today
@@ -218,7 +218,18 @@ router.get('/:id/challan/pdf', authorizeRole(['admin']), async (req, res) => {
   try {
     await generateEventChallanPDF(req.params.id, res);
   } catch (error) {
-    res.status(500).json({ error: 'Failed to generate PDF' });
+    console.error('Error generating event challan PDF:', error);
+    res.status(500).json({ error: error.message || 'Failed to generate PDF' });
+  }
+});
+
+// GET /api/events/:id/challan/logs/pdf
+router.get('/:id/challan/logs/pdf', authorizeRole(['admin']), async (req, res) => {
+  try {
+    await generateEventChallanWithLogsPDF(req.params.id, res);
+  } catch (error) {
+    console.error('Error generating event challan logs PDF:', error);
+    res.status(500).json({ error: error.message || 'Failed to generate PDF' });
   }
 });
 

@@ -119,6 +119,7 @@ async function setupDatabase() {
         event_id UUID REFERENCES events(event_id),
         worker_id UUID REFERENCES workers(worker_id),
         assigned_at TIMESTAMP DEFAULT NOW(),
+        assigned_by UUID REFERENCES users(user_id),
         role_note VARCHAR
       );
     `;
@@ -134,7 +135,8 @@ async function setupDatabase() {
         quantity_missing INTEGER GENERATED ALWAYS AS (quantity_assigned - quantity_returned) STORED,
         assigned_at TIMESTAMP DEFAULT NOW(),
         returned_at TIMESTAMP,
-        assigned_by UUID REFERENCES users(user_id)
+        assigned_by UUID REFERENCES users(user_id),
+        returned_by UUID REFERENCES users(user_id)
       );
     `;
 
