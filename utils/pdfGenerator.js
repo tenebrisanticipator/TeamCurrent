@@ -1,173 +1,337 @@
 const PDFDocument = require('pdfkit');
 const { sql } = require('../config/db');
 
-// Helper to draw Team Current Header
+// ─── Design Tokens ────────────────────────────────────────────────────────────
+const COLOR = {
+  brand:       '#F5A623',   // amber accent
+  headerBg:    '#0D1B2A',   // dark navy – table headers
+  headerText:  '#FFFFFF',
+  bodyText:    '#1A1A1A',
+  mutedText:   '#6B7C8F',
+  rowAlt:      '#F7F9FB',   // zebra stripe
+  rowBorder:   '#DDE4EC',
+  sectionHead: '#0D1B2A',
+  pageW:       595.28,      // A4 points
+  pageH:       841.89,
+  marginL:     45,
+  marginR:     45,
+  contentW:    505,         // pageW - marginL - marginR
+};
+
+// ─── HEADER ───────────────────────────────────────────────────────────────────
 function drawHeader(doc, title) {
-  // Amber square for TC logo
-  doc.rect(50, 45, 40, 40).fill('#F5A623');
-  doc.fillColor('#FFFFFF').fontSize(24).font('Helvetica-Bold').text('TC', 55, 55);
+  const L = COLOR.marginL;
 
-  // Text Header
-  doc.fillColor('#0D1B2A').fontSize(26).font('Helvetica-Bold').text('TEAM CURRENT', 105, 45, { characterSpacing: 1.5 });
-  doc.fillColor('#7A9BB5').fontSize(11).font('Helvetica').text('Lighting Solutions for Every Event', 105, 72);
+  // Amber logo block
+  doc.rect(L, 35, 44, 44).fill(COLOR.brand);
+  doc
+    .fillColor('#FFFFFF')
+    .font('Helvetica-Bold')
+    .fontSize(22)
+    .text('TC', L + 9, 47, { width: 26, align: 'center' });
 
-  // Amber full width rule
-  doc.strokeColor('#F5A623').lineWidth(2).moveTo(50, 100).lineTo(550, 100).stroke();
+  // Company name + tagline (absolute, right of logo)
+  doc
+    .fillColor(COLOR.sectionHead)
+    .font('Helvetica-Bold')
+    .fontSize(20)
+    .text('TEAM CURRENT', L + 54, 38, { characterSpacing: 1.2, lineBreak: false });
 
-  // Address block placeholder
-  doc.fillColor('#2C2C2C').fontSize(9)
-     .text('123 Godown Road, Industrial AreanPhone: +91 90000 00000nEmail: contact@teamcurrent.com', 400, 50, { align: 'right' });
+  doc
+    .fillColor(COLOR.mutedText)
+    .font('Helvetica')
+    .fontSize(9.5)
+    .text('Lighting Solutions for Every Event', L + 54, 62, { lineBreak: false });
 
-  // Document Title
-  doc.moveDown(3);
-  doc.fillColor('#0D1B2A').fontSize(18).font('Helvetica-Bold').text(title, 50, doc.y, { align: 'center' });
-  doc.moveDown(2);
+  // Contact block – right-aligned, no overlap
+  const contactLines = [
+    '123 Godown Road, Industrial Area',
+    'Phone: +91 90000 00000',
+    'Email: contact@teamcurrent.com',
+  ];
+  let cy = 38;
+  contactLines.forEach((line) => {
+    doc
+      .fillColor(COLOR.mutedText)
+      .font('Helvetica')
+      .fontSize(8.5)
+      .text(line, L, cy, { width: COLOR.contentW, align: 'right', lineBreak: false });
+    cy += 13;
+  });
+
+  // Amber rule
+  doc
+    .strokeColor(COLOR.brand)
+    .lineWidth(2)
+    .moveTo(L, 90)
+    .lineTo(L + COLOR.contentW, 90)
+    .stroke();
+
+  // Document title, centred between rules
+  doc
+    .fillColor(COLOR.sectionHead)
+    .font('Helvetica-Bold')
+    .fontSize(14)
+    .text(title, L, 100, { width: COLOR.contentW, align: 'center', lineBreak: false });
+
+  // Thin rule below title
+  doc
+    .strokeColor(COLOR.rowBorder)
+    .lineWidth(0.5)
+    .moveTo(L, 118)
+    .lineTo(L + COLOR.contentW, 118)
+    .stroke();
+
+  // Return the Y cursor below the header
+  return 132;
 }
 
-// Helper to draw footer
+// ─── FOOTER ───────────────────────────────────────────────────────────────────
 function drawFooter(doc, authorizedBy) {
-  const dateStr = new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' });
-  const bottom = doc.page.height - 50;
+  const L = COLOR.marginL;
+  const bottom = COLOR.pageH - 38;
 
-  doc.strokeColor('#1E3A52').lineWidth(1).moveTo(50, bottom - 20).lineTo(550, bottom - 20).stroke();
-  
-  doc.fillColor('#7A9BB5').fontSize(9).font('Helvetica')
-     .text(`Generated on: ${dateStr}`, 50, bottom)
-     .text(`Authorized by: ${authorizedBy}`, 50, bottom + 12);
+  doc
+    .strokeColor(COLOR.rowBorder)
+    .lineWidth(0.5)
+    .moveTo(L, bottom - 14)
+    .lineTo(L + COLOR.contentW, bottom - 14)
+    .stroke();
+
+  const dateStr = new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' });
+
+  doc
+    .fillColor(COLOR.mutedText)
+    .font('Helvetica')
+    .fontSize(8)
+    .text(`Generated: ${dateStr}`, L, bottom, { lineBreak: false });
+
+  doc
+    .text(`Authorized by: ${authorizedBy}`, L, bottom, {
+      width: COLOR.contentW,
+      align: 'right',
+      lineBreak: false,
+    });
 }
 
+// ─── SECTION LABEL ────────────────────────────────────────────────────────────
+function sectionLabel(doc, label, y) {
+  const L = COLOR.marginL;
+  doc
+    .fillColor(COLOR.sectionHead)
+    .font('Helvetica-Bold')
+    .fontSize(10.5)
+    .text(label, L, y, { lineBreak: false });
+  return y + 16;
+}
+
+// ─── INFO GRID (key-value pairs in two columns) ───────────────────────────────
+function infoGrid(doc, rows, startY) {
+  const L = COLOR.marginL;
+  const col2X = L + 260;
+  const lineH = 15;
+  let y = startY;
+
+  rows.forEach(([key, val], i) => {
+    const x = i % 2 === 0 ? L : col2X;
+    if (i % 2 === 0 && i > 0) y += lineH;
+
+    doc
+      .fillColor(COLOR.mutedText)
+      .font('Helvetica')
+      .fontSize(8.5)
+      .text(`${key}: `, x, y, { continued: true, lineBreak: false });
+    doc
+      .fillColor(COLOR.bodyText)
+      .font('Helvetica-Bold')
+      .fontSize(8.5)
+      .text(String(val ?? 'N/A'), { lineBreak: false });
+  });
+
+  return y + lineH + 6;
+}
+
+// ─── TABLE HELPERS ─────────────────────────────────────────────────────────────
+const ROW_H = 22;
+const FOOTER_SAFE = 80; // leave this many pts before page bottom
+
+function tableHeader(doc, y, cols) {
+  const L = COLOR.marginL;
+
+  doc.rect(L, y, COLOR.contentW, ROW_H).fill(COLOR.headerBg);
+  doc.fillColor(COLOR.headerText).font('Helvetica-Bold').fontSize(8.5);
+
+  cols.forEach(({ label, x, width, align }) => {
+    doc.text(label, x, y + 7, { width: width || 80, align: align || 'left', lineBreak: false });
+  });
+
+  return y + ROW_H;
+}
+
+function tableRow(doc, y, cols, isAlt) {
+  const L = COLOR.marginL;
+
+  if (isAlt) doc.rect(L, y, COLOR.contentW, ROW_H).fill(COLOR.rowAlt);
+  doc
+    .rect(L, y, COLOR.contentW, ROW_H)
+    .strokeColor(COLOR.rowBorder)
+    .lineWidth(0.4)
+    .stroke();
+
+  doc.fillColor(COLOR.bodyText).font('Helvetica').fontSize(8.5);
+  cols.forEach(({ value, x, width, align }) => {
+    doc.text(String(value ?? '-'), x, y + 7, {
+      width: width || 80,
+      align: align || 'left',
+      lineBreak: false,
+    });
+  });
+
+  return y + ROW_H;
+}
+
+// Returns new y; adds page if needed (with fresh header continuation)
+function safeY(doc, y) {
+  if (y > COLOR.pageH - FOOTER_SAFE) {
+    doc.addPage();
+    return 50;
+  }
+  return y;
+}
+
+// ─── PURCHASE ORDER ───────────────────────────────────────────────────────────
 async function generatePurchasePDF(purchaseId, res) {
   const purchases = await sql`
-    SELECT p.*, i.name as item_name, s.company_name, s.contact_person, s.phone, s.address, u.name as admin_name
-    FROM purchases p 
-    JOIN items i ON p.item_id = i.item_id 
+    SELECT p.*, i.name AS item_name,
+           s.company_name, s.contact_person, s.phone, s.address,
+           u.name AS admin_name
+    FROM purchases p
+    JOIN items i ON p.item_id = i.item_id
     JOIN suppliers s ON p.supplier_id = s.supplier_id
     LEFT JOIN users u ON p.added_by = u.user_id
     WHERE p.purchase_id = ${purchaseId}
   `;
-  
-  if (purchases.length === 0) {
-    return res.status(404).json({ error: 'Purchase not found' });
-  }
-  const data = purchases[0];
+  if (purchases.length === 0) return res.status(404).json({ error: 'Purchase not found' });
+  const d = purchases[0];
 
-  const doc = new PDFDocument({ margin: 50 });
-  res.setHeader('Content-disposition', `attachment; filename="Purchase_Order_${purchaseId}.pdf"`);
-  res.setHeader('Content-type', 'application/pdf');
+  const doc = new PDFDocument({ margin: 0, size: 'A4' });
+  res.setHeader('Content-Disposition', `attachment; filename="Purchase_Order_${purchaseId}.pdf"`);
+  res.setHeader('Content-Type', 'application/pdf');
   doc.pipe(res);
 
-  drawHeader(doc, 'PURCHASE ORDER');
+  let y = drawHeader(doc, 'PURCHASE ORDER');
 
-  doc.fontSize(12).font('Helvetica-Bold').text('Supplier Details:', 50, doc.y);
-  doc.font('Helvetica').text(`Company: ${data.company_name}`);
-  doc.text(`Contact: ${data.contact_person || 'N/A'}`);
-  doc.text(`Phone: ${data.phone || 'N/A'}`);
-  doc.text(`Address: ${data.address || 'N/A'}`);
+  // Supplier section
+  y = sectionLabel(doc, 'Supplier Details', y);
+  y = infoGrid(doc, [
+    ['Company',  d.company_name],
+    ['Contact',  d.contact_person],
+    ['Phone',    d.phone],
+    ['Address',  d.address],
+  ], y);
 
-  doc.moveDown(2);
-  doc.font('Helvetica-Bold').text('Order Details:', 50, doc.y);
-  
-  // Table Header
-  const tableTop = doc.y + 10;
-  doc.rect(50, tableTop, 500, 25).fill('#1A3048');
-  doc.fillColor('#FFFFFF').font('Helvetica-Bold');
-  doc.text('Item', 60, tableTop + 7);
-  doc.text('Quantity', 300, tableTop + 7);
-  doc.text('Date', 420, tableTop + 7);
+  y += 8;
+  y = sectionLabel(doc, 'Order Details', y);
+  y += 4;
 
-  // Table Row
-  doc.fillColor('#2C2C2C').font('Helvetica');
-  doc.rect(50, tableTop + 25, 500, 25).stroke('#1E3A52');
-  doc.text(data.item_name, 60, tableTop + 32);
-  doc.text(data.quantity.toString(), 300, tableTop + 32);
-  doc.text(new Date(data.purchase_date).toLocaleDateString('en-IN'), 420, tableTop + 32);
+  const cols = [
+    { label: 'Item',     x: COLOR.marginL + 6,  width: 200 },
+    { label: 'Quantity', x: COLOR.marginL + 260, width: 80  },
+    { label: 'Date',     x: COLOR.marginL + 370, width: 100 },
+  ];
+  y = tableHeader(doc, y, cols);
 
-  if (data.notes) {
-    doc.moveDown(3);
-    doc.font('Helvetica-Bold').text('Notes:');
-    doc.font('Helvetica').text(data.notes);
+  y = tableRow(doc, y, [
+    { value: d.item_name,  x: COLOR.marginL + 6,  width: 200 },
+    { value: d.quantity,   x: COLOR.marginL + 260, width: 80  },
+    { value: new Date(d.purchase_date).toLocaleDateString('en-IN'), x: COLOR.marginL + 370, width: 100 },
+  ], false);
+
+  if (d.notes) {
+    y += 12;
+    y = sectionLabel(doc, 'Notes', y);
+    doc.fillColor(COLOR.bodyText).font('Helvetica').fontSize(9)
+       .text(d.notes, COLOR.marginL, y, { width: COLOR.contentW });
+    y = doc.y + 4;
   }
 
-  drawFooter(doc, data.admin_name || 'System Auto');
+  drawFooter(doc, d.admin_name || 'System Auto');
   doc.end();
 }
 
+// ─── DELIVERY CHALLAN ─────────────────────────────────────────────────────────
 async function generateEventChallanPDF(eventId, res) {
   const events = await sql`
-    SELECT e.*, u.name as admin_name FROM events e 
-    LEFT JOIN users u ON e.created_by = u.user_id 
+    SELECT e.*, u.name AS admin_name FROM events e
+    LEFT JOIN users u ON e.created_by = u.user_id
     WHERE e.event_id = ${eventId}
   `;
   if (events.length === 0) return res.status(404).json({ error: 'Event not found' });
   const ev = events[0];
 
   const items = await sql`
-    SELECT ei.*, i.name as item_name, i.unit 
-    FROM event_items ei JOIN items i ON ei.item_id = i.item_id
+    SELECT ei.*, i.name AS item_name, i.unit
+    FROM event_items ei
+    JOIN items i ON ei.item_id = i.item_id
     WHERE ei.event_id = ${eventId}
   `;
 
-  const doc = new PDFDocument({ margin: 50 });
-  res.setHeader('Content-disposition', `attachment; filename="Delivery_Challan_${eventId}.pdf"`);
-  res.setHeader('Content-type', 'application/pdf');
+  const doc = new PDFDocument({ margin: 0, size: 'A4' });
+  res.setHeader('Content-Disposition', `attachment; filename="Delivery_Challan_${eventId}.pdf"`);
+  res.setHeader('Content-Type', 'application/pdf');
   doc.pipe(res);
 
-  drawHeader(doc, 'DELIVERY CHALLAN');
+  let y = drawHeader(doc, 'DELIVERY CHALLAN');
 
-  doc.fontSize(12).font('Helvetica-Bold').text('Event Information:', 50, doc.y);
-  doc.font('Helvetica')
-     .text(`Event Name: ${ev.event_name}`)
-     .text(`Client: ${ev.client_company}`)
-     .text(`Venue: ${ev.place}`)
-     .text(`Date: ${new Date(ev.event_date).toLocaleDateString('en-IN')} ${ev.event_time}`)
-     .text(`Status: ${ev.status.toUpperCase()}`);
+  y = sectionLabel(doc, 'Event Information', y);
+  y = infoGrid(doc, [
+    ['Event',   ev.event_name],
+    ['Client',  ev.client_company],
+    ['Venue',   ev.place],
+    ['Date',    `${new Date(ev.event_date).toLocaleDateString('en-IN')} ${ev.event_time}`],
+    ['Status',  ev.status.toUpperCase()],
+  ], y);
 
-  doc.moveDown(2);
-  doc.font('Helvetica-Bold').text('Equipment Assigned:', 50, doc.y);
-  
-  const tableTop = doc.y + 10;
-  doc.rect(50, tableTop, 500, 25).fill('#1A3048');
-  doc.fillColor('#FFFFFF').font('Helvetica-Bold');
-  doc.text('Item Name', 60, tableTop + 7);
-  doc.text('Assigned', 280, tableTop + 7);
-  doc.text('Returned', 360, tableTop + 7);
-  doc.text('Missing', 440, tableTop + 7);
+  y += 8;
+  y = sectionLabel(doc, 'Equipment Assigned', y);
+  y += 4;
 
-  doc.fillColor('#2C2C2C').font('Helvetica');
-  let currentY = tableTop + 25;
-  
+  const cols = [
+    { label: 'Item Name',  x: COLOR.marginL + 6,  width: 200 },
+    { label: 'Assigned',   x: COLOR.marginL + 230, width: 80  },
+    { label: 'Returned',   x: COLOR.marginL + 320, width: 80  },
+    { label: 'Missing',    x: COLOR.marginL + 410, width: 80  },
+  ];
+  y = tableHeader(doc, y, cols);
+
   items.forEach((it, idx) => {
-    doc.rect(50, currentY, 500, 25).stroke('#1E3A52');
-    doc.text(it.item_name, 60, currentY + 7);
-    doc.text(`${it.quantity_assigned} ${it.unit}`, 280, currentY + 7);
-    doc.text(`${it.quantity_returned} ${it.unit}`, 360, currentY + 7);
-    doc.text(`${it.quantity_missing} ${it.unit}`, 440, currentY + 7);
-    currentY += 25;
-    
-    // Add new page if table runs too long
-    if (currentY > doc.page.height - 100) {
-      doc.addPage();
-      currentY = 50;
-    }
+    y = safeY(doc, y);
+    y = tableRow(doc, y, [
+      { value: it.item_name,                          x: COLOR.marginL + 6,  width: 200 },
+      { value: `${it.quantity_assigned} ${it.unit}`,  x: COLOR.marginL + 230, width: 80  },
+      { value: `${it.quantity_returned} ${it.unit}`,  x: COLOR.marginL + 320, width: 80  },
+      { value: `${it.quantity_missing} ${it.unit}`,   x: COLOR.marginL + 410, width: 80  },
+    ], idx % 2 === 1);
   });
 
   drawFooter(doc, ev.admin_name || 'System Auto');
   doc.end();
 }
 
+// ─── DELIVERY CHALLAN WITH LOGS ───────────────────────────────────────────────
 async function generateEventChallanWithLogsPDF(eventId, res) {
   const events = await sql`
-    SELECT e.*, u.name as admin_name FROM events e 
-    LEFT JOIN users u ON e.created_by = u.user_id 
+    SELECT e.*, u.name AS admin_name FROM events e
+    LEFT JOIN users u ON e.created_by = u.user_id
     WHERE e.event_id = ${eventId}
   `;
   if (events.length === 0) return res.status(404).json({ error: 'Event not found' });
   const ev = events[0];
 
   const items = await sql`
-    SELECT ei.*, i.name as item_name, i.unit, 
-           ua.name as assigned_by_name, ur.name as returned_by_name
-    FROM event_items ei 
+    SELECT ei.*, i.name AS item_name, i.unit,
+           ua.name AS assigned_by_name, ur.name AS returned_by_name
+    FROM event_items ei
     JOIN items i ON ei.item_id = i.item_id
     LEFT JOIN users ua ON ei.assigned_by = ua.user_id
     LEFT JOIN users ur ON ei.returned_by = ur.user_id
@@ -175,202 +339,206 @@ async function generateEventChallanWithLogsPDF(eventId, res) {
   `;
 
   const workers = await sql`
-    SELECT ew.*, w.name as worker_name, w.worker_code, ua.name as assigned_by_name
+    SELECT ew.*, w.name AS worker_name, w.worker_code, ua.name AS assigned_by_name
     FROM event_workers ew
     JOIN workers w ON ew.worker_id = w.worker_id
     LEFT JOIN users ua ON ew.assigned_by = ua.user_id
     WHERE ew.event_id = ${eventId}
   `;
 
-  const doc = new PDFDocument({ margin: 50 });
-  res.setHeader('Content-disposition', `attachment; filename="Delivery_Challan_With_Logs_${eventId}.pdf"`);
-  res.setHeader('Content-type', 'application/pdf');
+  const doc = new PDFDocument({ margin: 0, size: 'A4' });
+  res.setHeader('Content-Disposition', `attachment; filename="Delivery_Challan_With_Logs_${eventId}.pdf"`);
+  res.setHeader('Content-Type', 'application/pdf');
   doc.pipe(res);
 
-  drawHeader(doc, 'DELIVERY CHALLAN WITH LOGS');
+  let y = drawHeader(doc, 'DELIVERY CHALLAN WITH LOGS');
 
-  doc.fontSize(12).font('Helvetica-Bold').text('Event Information:', 50, doc.y);
-  doc.font('Helvetica')
-     .text(`Event Name: ${ev.event_name}`)
-     .text(`Client: ${ev.client_company}`)
-     .text(`Venue: ${ev.place}`)
-     .text(`Date: ${new Date(ev.event_date).toLocaleDateString('en-IN')} ${ev.event_time}`)
-     .text(`Status: ${ev.status.toUpperCase()}`);
+  // Event info
+  y = sectionLabel(doc, 'Event Information', y);
+  y = infoGrid(doc, [
+    ['Event',   ev.event_name],
+    ['Client',  ev.client_company],
+    ['Venue',   ev.place],
+    ['Date',    `${new Date(ev.event_date).toLocaleDateString('en-IN')} ${ev.event_time}`],
+    ['Status',  ev.status.toUpperCase()],
+  ], y);
 
-  doc.moveDown(2);
-  doc.font('Helvetica-Bold').text('Equipment Assignment Logs:', 50, doc.y);
-  
-  const tableTop = doc.y + 10;
-  doc.rect(50, tableTop, 500, 25).fill('#1A3048');
-  doc.fillColor('#FFFFFF').font('Helvetica-Bold');
-  doc.text('Item Name', 60, tableTop + 7);
-  doc.text('Qty', 250, tableTop + 7);
-  doc.text('Assigned By', 300, tableTop + 7);
-  doc.text('Assigned At', 400, tableTop + 7);
+  // ── Assignment Logs ──
+  y += 8;
+  y = sectionLabel(doc, 'Equipment Assignment Logs', y);
+  y += 4;
 
-  doc.fillColor('#2C2C2C').font('Helvetica');
-  let currentY = tableTop + 25;
-  
+  const assignCols = [
+    { label: 'Item Name',    x: COLOR.marginL + 6,  width: 180 },
+    { label: 'Qty',          x: COLOR.marginL + 196, width: 60  },
+    { label: 'Assigned By',  x: COLOR.marginL + 266, width: 110 },
+    { label: 'Assigned At',  x: COLOR.marginL + 386, width: 115 },
+  ];
+  y = tableHeader(doc, y, assignCols);
+
   items.forEach((it, idx) => {
-    doc.rect(50, currentY, 500, 25).stroke('#1E3A52');
-    doc.text(it.item_name, 60, currentY + 7);
-    doc.text(`${it.quantity_assigned} ${it.unit}`, 250, currentY + 7);
-    doc.text(it.assigned_by_name || 'Unknown', 300, currentY + 7);
-    doc.text(it.assigned_at ? new Date(it.assigned_at).toLocaleString('en-IN') : '-', 400, currentY + 7);
-    currentY += 25;
-    
-    // Add new page if table runs too long
-    if (currentY > doc.page.height - 100) {
-      doc.addPage();
-      currentY = 50;
-    }
+    y = safeY(doc, y);
+    y = tableRow(doc, y, [
+      { value: it.item_name,                                                     x: COLOR.marginL + 6,  width: 180 },
+      { value: `${it.quantity_assigned} ${it.unit}`,                             x: COLOR.marginL + 196, width: 60  },
+      { value: it.assigned_by_name || 'Unknown',                                 x: COLOR.marginL + 266, width: 110 },
+      { value: it.assigned_at ? new Date(it.assigned_at).toLocaleString('en-IN') : '-', x: COLOR.marginL + 386, width: 115 },
+    ], idx % 2 === 1);
   });
 
-  doc.moveDown(2);
-  doc.font('Helvetica-Bold').text('Equipment Return Logs:', 50, doc.y);
-  
-  const returnTableTop = doc.y + 10;
-  doc.rect(50, returnTableTop, 500, 25).fill('#1A3048');
-  doc.fillColor('#FFFFFF').font('Helvetica-Bold');
-  doc.text('Item Name', 60, returnTableTop + 7);
-  doc.text('Returned Qty', 250, returnTableTop + 7);
-  doc.text('Returned By', 320, returnTableTop + 7);
-  doc.text('Returned At', 400, returnTableTop + 7);
+  // ── Return Logs ──
+  const returned = items.filter((it) => it.quantity_returned > 0);
+  if (returned.length > 0) {
+    y += 10;
+    y = safeY(doc, y);
+    y = sectionLabel(doc, 'Equipment Return Logs', y);
+    y += 4;
 
-  doc.fillColor('#2C2C2C').font('Helvetica');
-  currentY = returnTableTop + 25;
-  
-  items.filter(it => it.quantity_returned > 0).forEach((it, idx) => {
-    doc.rect(50, currentY, 500, 25).stroke('#1E3A52');
-    doc.text(it.item_name, 60, currentY + 7);
-    doc.text(`${it.quantity_returned} ${it.unit}`, 250, currentY + 7);
-    doc.text(it.returned_by_name || 'Unknown', 320, currentY + 7);
-    doc.text(it.returned_at ? new Date(it.returned_at).toLocaleString('en-IN') : '-', 400, currentY + 7);
-    currentY += 25;
-    
-    // Add new page if table runs too long
-    if (currentY > doc.page.height - 100) {
-      doc.addPage();
-      currentY = 50;
-    }
-  });
+    const retCols = [
+      { label: 'Item Name',    x: COLOR.marginL + 6,  width: 180 },
+      { label: 'Returned Qty', x: COLOR.marginL + 196, width: 70  },
+      { label: 'Returned By',  x: COLOR.marginL + 276, width: 110 },
+      { label: 'Returned At',  x: COLOR.marginL + 396, width: 110 },
+    ];
+    y = tableHeader(doc, y, retCols);
 
-  doc.moveDown(2);
-  doc.font('Helvetica-Bold').text('Staff Assignment Logs:', 50, doc.y);
-  
-  const workerTableTop = doc.y + 10;
-  doc.rect(50, workerTableTop, 500, 25).fill('#1A3048');
-  doc.fillColor('#FFFFFF').font('Helvetica-Bold');
-  doc.text('Worker Name', 60, workerTableTop + 7);
-  doc.text('Code', 250, workerTableTop + 7);
-  doc.text('Assigned By', 300, workerTableTop + 7);
-  doc.text('Assigned At', 400, workerTableTop + 7);
+    returned.forEach((it, idx) => {
+      y = safeY(doc, y);
+      y = tableRow(doc, y, [
+        { value: it.item_name,                                                      x: COLOR.marginL + 6,  width: 180 },
+        { value: `${it.quantity_returned} ${it.unit}`,                              x: COLOR.marginL + 196, width: 70  },
+        { value: it.returned_by_name || 'Unknown',                                  x: COLOR.marginL + 276, width: 110 },
+        { value: it.returned_at ? new Date(it.returned_at).toLocaleString('en-IN') : '-', x: COLOR.marginL + 396, width: 110 },
+      ], idx % 2 === 1);
+    });
+  }
 
-  doc.fillColor('#2C2C2C').font('Helvetica');
-  currentY = workerTableTop + 25;
-  
-  workers.forEach((w) => {
-    doc.rect(50, currentY, 500, 25).stroke('#1E3A52');
-    doc.text(w.worker_name, 60, currentY + 7);
-    doc.text(w.worker_code, 250, currentY + 7);
-    doc.text(w.assigned_by_name || 'Unknown', 300, currentY + 7);
-    doc.text(w.assigned_at ? new Date(w.assigned_at).toLocaleString('en-IN') : '-', 400, currentY + 7);
-    currentY += 25;
-    
-    // Add new page if table runs too long
-    if (currentY > doc.page.height - 100) {
-      doc.addPage();
-      currentY = 50;
-    }
-  });
+  // ── Staff Logs ──
+  if (workers.length > 0) {
+    y += 10;
+    y = safeY(doc, y);
+    y = sectionLabel(doc, 'Staff Assignment Logs', y);
+    y += 4;
 
-  doc.moveDown(2);
-  doc.font('Helvetica-Bold').text('Equipment Summary:', 50, doc.y);
-  const summaryTableTop = doc.y + 10;
-  doc.rect(50, summaryTableTop, 500, 25).fill('#1A3048');
-  doc.fillColor('#FFFFFF').font('Helvetica-Bold');
-  doc.text('Item Name', 60, summaryTableTop + 7);
-  doc.text('Assigned', 250, summaryTableTop + 7);
-  doc.text('Returned', 320, summaryTableTop + 7);
-  doc.text('Missing', 400, summaryTableTop + 7);
+    const wCols = [
+      { label: 'Worker Name', x: COLOR.marginL + 6,  width: 160 },
+      { label: 'Code',        x: COLOR.marginL + 176, width: 80  },
+      { label: 'Assigned By', x: COLOR.marginL + 266, width: 120 },
+      { label: 'Assigned At', x: COLOR.marginL + 396, width: 110 },
+    ];
+    y = tableHeader(doc, y, wCols);
 
-  doc.fillColor('#2C2C2C').font('Helvetica');
-  currentY = summaryTableTop + 25;
-  
+    workers.forEach((w, idx) => {
+      y = safeY(doc, y);
+      y = tableRow(doc, y, [
+        { value: w.worker_name,                                                     x: COLOR.marginL + 6,  width: 160 },
+        { value: w.worker_code,                                                     x: COLOR.marginL + 176, width: 80  },
+        { value: w.assigned_by_name || 'Unknown',                                   x: COLOR.marginL + 266, width: 120 },
+        { value: w.assigned_at ? new Date(w.assigned_at).toLocaleString('en-IN') : '-', x: COLOR.marginL + 396, width: 110 },
+      ], idx % 2 === 1);
+    });
+  }
+
+  // ── Summary ──
+  y += 10;
+  y = safeY(doc, y);
+  y = sectionLabel(doc, 'Equipment Summary', y);
+  y += 4;
+
+  const sumCols = [
+    { label: 'Item Name', x: COLOR.marginL + 6,  width: 200 },
+    { label: 'Assigned',  x: COLOR.marginL + 230, width: 80  },
+    { label: 'Returned',  x: COLOR.marginL + 320, width: 80  },
+    { label: 'Missing',   x: COLOR.marginL + 410, width: 80  },
+  ];
+  y = tableHeader(doc, y, sumCols);
+
   items.forEach((it, idx) => {
-    doc.rect(50, currentY, 500, 25).stroke('#1E3A52');
-    doc.text(it.item_name, 60, currentY + 7);
-    doc.text(`${it.quantity_assigned} ${it.unit}`, 250, currentY + 7);
-    doc.text(`${it.quantity_returned} ${it.unit}`, 320, currentY + 7);
-    doc.text(`${it.quantity_missing} ${it.unit}`, 400, currentY + 7);
-    currentY += 25;
-    
-    // Add new page if table runs too long
-    if (currentY > doc.page.height - 100) {
-      doc.addPage();
-      currentY = 50;
-    }
+    y = safeY(doc, y);
+    y = tableRow(doc, y, [
+      { value: it.item_name,                         x: COLOR.marginL + 6,  width: 200 },
+      { value: `${it.quantity_assigned} ${it.unit}`, x: COLOR.marginL + 230, width: 80  },
+      { value: `${it.quantity_returned} ${it.unit}`, x: COLOR.marginL + 320, width: 80  },
+      { value: `${it.quantity_missing} ${it.unit}`,  x: COLOR.marginL + 410, width: 80  },
+    ], idx % 2 === 1);
   });
 
   drawFooter(doc, ev.admin_name || 'System Auto');
   doc.end();
 }
 
+// ─── WORKER ATTENDANCE ────────────────────────────────────────────────────────
 async function generateWorkerAttendancePDF(workerId, monthStr, res) {
-  // monthStr is YYYY-MM
   const workers = await sql`SELECT worker_code, name, worker_type FROM workers WHERE worker_id = ${workerId}`;
   if (workers.length === 0) return res.status(404).json({ error: 'Worker not found' });
   const worker = workers[0];
 
   const startDate = `${monthStr}-01`;
-  const endDate = `${monthStr}-31`;
+  const endDate   = `${monthStr}-31`;
 
   const attendance = await sql`
-    SELECT date, status, location_note FROM attendance 
+    SELECT date, status, location_note FROM attendance
     WHERE worker_id = ${workerId} AND date >= ${startDate} AND date <= ${endDate}
     ORDER BY date ASC
   `;
 
-  const doc = new PDFDocument({ margin: 50 });
-  res.setHeader('Content-disposition', `attachment; filename="Attendance_${worker.worker_code}_${monthStr}.pdf"`);
-  res.setHeader('Content-type', 'application/pdf');
+  const doc = new PDFDocument({ margin: 0, size: 'A4' });
+  res.setHeader('Content-Disposition', `attachment; filename="Attendance_${worker.worker_code}_${monthStr}.pdf"`);
+  res.setHeader('Content-Type', 'application/pdf');
   doc.pipe(res);
 
-  drawHeader(doc, 'MONTHLY ATTENDANCE REPORT');
+  let y = drawHeader(doc, 'MONTHLY ATTENDANCE REPORT');
 
-  doc.fontSize(12).font('Helvetica-Bold').text('Worker Details:', 50, doc.y);
-  doc.font('Helvetica')
-     .text(`Code: ${worker.worker_code}`)
-     .text(`Name: ${worker.name}`)
-     .text(`Role: ${worker.worker_type.toUpperCase()}`)
-     .text(`Month: ${monthStr}`);
+  y = sectionLabel(doc, 'Worker Details', y);
+  y = infoGrid(doc, [
+    ['Code',  worker.worker_code],
+    ['Name',  worker.name],
+    ['Role',  worker.worker_type.toUpperCase()],
+    ['Month', monthStr],
+  ], y);
 
-  doc.moveDown(2);
-  const tableTop = doc.y + 10;
-  doc.rect(50, tableTop, 500, 25).fill('#1A3048');
-  doc.fillColor('#FFFFFF').font('Helvetica-Bold');
-  doc.text('Date', 60, tableTop + 7);
-  doc.text('Status', 200, tableTop + 7);
-  doc.text('Location / Duty', 350, tableTop + 7);
+  y += 8;
+  y = sectionLabel(doc, 'Attendance Log', y);
+  y += 4;
 
-  doc.fillColor('#2C2C2C').font('Helvetica');
-  let currentY = tableTop + 25;
-  
-  attendance.forEach((a) => {
-    doc.rect(50, currentY, 500, 25).stroke('#1E3A52');
-    doc.text(new Date(a.date).toLocaleDateString('en-IN'), 60, currentY + 7);
-    doc.text(a.status.toUpperCase(), 200, currentY + 7);
-    doc.text(a.location_note || '-', 350, currentY + 7);
-    currentY += 25;
-    
-    if (currentY > doc.page.height - 100) {
-      doc.addPage();
-      currentY = 50;
-    }
+  const cols = [
+    { label: 'Date',            x: COLOR.marginL + 6,  width: 120 },
+    { label: 'Status',          x: COLOR.marginL + 156, width: 100 },
+    { label: 'Location / Duty', x: COLOR.marginL + 276, width: 224 },
+  ];
+  y = tableHeader(doc, y, cols);
+
+  // Status badge colors
+  const statusColor = (s) => {
+    const map = { present: '#1A7F4B', absent: '#C0392B', leave: '#7F6A00', holiday: '#1A4A7F' };
+    return map[s?.toLowerCase()] || COLOR.bodyText;
+  };
+
+  attendance.forEach((a, idx) => {
+    y = safeY(doc, y);
+    const L = COLOR.marginL;
+    if (idx % 2 === 1) doc.rect(L, y, COLOR.contentW, ROW_H).fill(COLOR.rowAlt);
+    doc.rect(L, y, COLOR.contentW, ROW_H).strokeColor(COLOR.rowBorder).lineWidth(0.4).stroke();
+
+    doc.fillColor(COLOR.bodyText).font('Helvetica').fontSize(8.5)
+       .text(new Date(a.date).toLocaleDateString('en-IN'), L + 6, y + 7, { width: 120, lineBreak: false });
+
+    doc.fillColor(statusColor(a.status)).font('Helvetica-Bold').fontSize(8.5)
+       .text(a.status.toUpperCase(), L + 156, y + 7, { width: 100, lineBreak: false });
+
+    doc.fillColor(COLOR.bodyText).font('Helvetica').fontSize(8.5)
+       .text(a.location_note || '-', L + 276, y + 7, { width: 224, lineBreak: false });
+
+    y += ROW_H;
   });
 
   drawFooter(doc, 'System Generated');
   doc.end();
 }
 
-module.exports = { generatePurchasePDF, generateEventChallanPDF, generateEventChallanWithLogsPDF, generateWorkerAttendancePDF };
+module.exports = {
+  generatePurchasePDF,
+  generateEventChallanPDF,
+  generateEventChallanWithLogsPDF,
+  generateWorkerAttendancePDF,
+};
