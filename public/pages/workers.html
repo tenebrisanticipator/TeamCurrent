@@ -159,44 +159,10 @@
     </div>
   </div>
 
-  <!-- Attendance Modal -->
-  <div class="modal-backdrop" id="attendance-modal" onclick="if(event.target===this) toggleModal('attendance-modal', false)">
-    <div class="modal-card">
-      <h3 class="card-title" style="color:var(--white); font-size:20px;">Mark Attendance</h3>
-      <form id="attendance-form" class="mt-20">
-        <div class="form-group">
-          <label>Worker</label>
-          <input type="text" id="attendance-worker-name" class="form-control" disabled>
-        </div>
-        <div class="form-group">
-          <label>Date</label>
-          <input type="date" id="attendance-date" class="form-control" required>
-        </div>
-        <div class="form-group mb-20">
-          <label>Status</label>
-          <select id="attendance-status" class="form-control" required>
-            <option value="">Select Status</option>
-            <option value="present">Present</option>
-            <option value="absent">Absent</option>
-            <option value="half-day">Half Day</option>
-            <option value="leave">Leave</option>
-          </select>
-        </div>
-        <div class="form-group mb-20">
-          <label>Location Note</label>
-          <input type="text" id="attendance-location" class="form-control" placeholder="e.g., Godown, Site A" value="Godown">
-        </div>
-        <div class="flex gap-10 mt-20">
-          <button type="submit" class="btn btn-primary" id="attendance-submit-btn" style="flex:1;">Mark Attendance</button>
-          <button type="button" class="btn btn-outline" onclick="toggleModal('attendance-modal', false)" style="flex:1;">Cancel</button>
-        </div>
-      </form>
-    </div>
-  </div>
 
   <div class="app-container">
         <aside class="sidebar sidebar-enter">
-      <div class="sidebar-header"><div class="logo-badge">TC</div><div class="brand-name">CURRENT</div></div>
+      <div class="sidebar-header"><div class="logo-badge">TC</div><div class="brand-name">TEAM CURRENT</div></div>
       <nav class="nav-menu">
         <a href="/pages/dashboard.html" class="nav-item">Dashboard</a>
         <a href="/pages/inventory.html" class="nav-item">Inventory</a>
@@ -341,17 +307,6 @@
       }
     }
 
-    function markAttendance(workerId, workerName) {
-      document.getElementById('attendance-worker-name').value = workerName;
-      document.getElementById('attendance-form').dataset.workerId = workerId;
-      
-      // Set today's date by default
-      const today = new Date().toISOString().split('T')[0];
-      document.getElementById('attendance-date').value = today;
-      
-      toggleModal('attendance-modal', true);
-    }
-
     async function loadData(cursor = null) {
       document.getElementById('table-body').innerHTML = '';
       window.renderSkeletonRows('table-body', 5, 5);
@@ -399,22 +354,12 @@
             <div class="flex gap-10">
               <button class="btn btn-outline" style="padding: 4px 8px; font-size:12px;" onclick="viewWorkerDetails('${w.worker_id}')">View</button>
               <button class="btn btn-outline admin-only" style="padding: 4px 8px; font-size:12px;" onclick="editWorker('${w.worker_id}')">Edit</button>
-              <button class="btn btn-outline" style="padding: 4px 8px; font-size:12px;" onclick="markAttendance('${w.worker_id}', '${w.name}')">Attendance</button>
-              <button class="btn btn-outline" style="padding: 4px 8px; font-size:12px;" onclick="downloadAttendance('${w.worker_id}')">PDF</button>
             </div>
           </td>
         `;
         tbody.appendChild(tr);
       });
       window.checkRoleAccess();
-    }
-
-    function downloadAttendance(id) {
-      // Prompt for current month
-      const d = new Date();
-      const monthStr = prompt('Enter month (YYYY-MM)', `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`);
-      if(!monthStr) return;
-      window.open(`/api/workers/${id}/attendance/pdf?month=${monthStr}`, '_blank');
     }
 
     document.addEventListener('DOMContentLoaded', () => {
@@ -466,30 +411,6 @@
           currentEditId = null;
           window.resetPagination();
           loadData(null);
-        } catch (err) {
-          window.showToast(err.message, 'error');
-        } finally {
-          btn.classList.remove('loading');
-        }
-      });
-
-      // Attendance form submission
-      document.getElementById('attendance-form').addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const btn = document.getElementById('attendance-submit-btn');
-        try {
-          btn.classList.add('loading');
-          const workerId = e.target.dataset.workerId;
-          
-          await window.api.post(`/api/workers/${workerId}/attendance`, {
-            date: document.getElementById('attendance-date').value,
-            status: document.getElementById('attendance-status').value,
-            location_note: document.getElementById('attendance-location').value
-          });
-          
-          window.showToast('Attendance marked successfully!');
-          toggleModal('attendance-modal', false);
-          document.getElementById('attendance-form').reset();
         } catch (err) {
           window.showToast(err.message, 'error');
         } finally {

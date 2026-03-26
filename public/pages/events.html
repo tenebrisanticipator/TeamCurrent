@@ -23,7 +23,11 @@
         
         <div class="form-group">
           <label>Company / Client Name</label>
-          <input type="text" id="client_company" class="form-control" required>
+          <div style="position:relative;">
+            <input type="text" id="company-input" class="form-control" placeholder="Search or type company..." autocomplete="off">
+            <input type="hidden" id="client_company" required>
+            <div id="company-dropdown" style="position:absolute; width:100%; max-height:200px; overflow-y:auto; background:var(--surface-2); border:1px solid var(--border); z-index:100; display:none; border-radius:4px;"></div>
+          </div>
         </div>
 
         <div class="form-group">
@@ -68,7 +72,7 @@
 
   <div class="app-container">
         <aside class="sidebar sidebar-enter">
-      <div class="sidebar-header"><div class="logo-badge">TC</div><div class="brand-name">CURRENT</div></div>
+      <div class="sidebar-header"><div class="logo-badge">TC</div><div class="brand-name">TEAM CURRENT</div></div>
       <nav class="nav-menu">
         <a href="/pages/dashboard.html" class="nav-item">Dashboard</a>
         <a href="/pages/inventory.html" class="nav-item">Inventory</a>
@@ -98,6 +102,10 @@
       <div class="stagger-in" style="--i:1">
         <div class="flex justify-between items-center mb-20">
           <div class="flex gap-10">
+            <input type="text" id="company-search" class="form-control" placeholder="Search by company..." style="width: 200px;">
+            <select id="company-filter" class="form-control" style="width: 150px;">
+              <option value="">All Companies</option>
+            </select>
             <select id="status-filter" class="form-control" style="width: 150px;">
               <option value="">All Statuses</option>
               <option value="upcoming">Upcoming</option>
@@ -137,12 +145,91 @@
   
   <script>
     let currentStatus = '';
+    let currentCompany = '';
+    let currentSearch = '';
+    let allCompanies = [];
 
     function toggleModal(id, show) {
       document.getElementById(id).classList.toggle('open', show);
       if(show && id === 'event-modal') {
          document.getElementById('event_date').value = new Date().toISOString().split('T')[0];
+         document.getElementById('company-input').value = '';
+         document.getElementById('client_company').value = '';
+         document.getElementById('company-dropdown').style.display = 'none';
       }
+    }
+
+    function setupCompanySearch() {
+      const input = document.getElementById('company-input');
+      const hidden = document.getElementById('client_company');
+      const dd = document.getElementById('company-dropdown');
+
+      input.addEventListener('input', () => {
+        const query = input.value.trim().toLowerCase();
+        dd.innerHTML = '';
+
+        if (query.length === 0) {
+          dd.style.display = 'none';
+          hidden.value = '';
+          return;
+        }
+
+        // Filter existing companies
+        const matches = allCompanies.filter(c => c.toLowerCase().includes(query));
+
+        // Show matching companies
+        matches.forEach(company => {
+          const div = document.createElement('div');
+          div.style.padding = '10px';
+          div.style.cursor = 'pointer';
+          div.style.borderBottom = '1px solid var(--border)';
+          div.textContent = company;
+          div.onclick = () => {
+            input.value = company;
+            hidden.value = company;
+            dd.style.display = 'none';
+          };
+          div.onmouseenter = () => div.style.background = 'var(--surface)';
+          div.onmouseleave = () => div.style.background = 'transparent';
+          dd.appendChild(div);
+        });
+
+        // Show "Add new company" option if text doesn't match any company
+        if (matches.length === 0 || !allCompanies.includes(query)) {
+          const divider = document.createElement('div');
+          divider.style.borderTop = '2px solid var(--border)';
+          divider.style.margin = '5px 0';
+          dd.appendChild(divider);
+
+          const addNew = document.createElement('div');
+          addNew.style.padding = '10px';
+          addNew.style.cursor = 'pointer';
+          addNew.style.color = 'var(--primary)';
+          addNew.style.fontWeight = 'bold';
+          addNew.textContent = `+ Add new company: "${input.value}"`;
+          addNew.onclick = () => {
+            hidden.value = input.value;
+            dd.style.display = 'none';
+            allCompanies.push(input.value);
+            allCompanies.sort();
+          };
+          addNew.onmouseenter = () => addNew.style.background = 'var(--surface)';
+          addNew.onmouseleave = () => addNew.style.background = 'transparent';
+          dd.appendChild(addNew);
+        }
+
+        dd.style.display = 'block';
+      });
+
+      input.addEventListener('focus', () => {
+        if (input.value.length > 0) dd.style.display = 'block';
+      });
+
+      document.addEventListener('click', (e) => {
+        if (!e.target.closest('.form-group')) {
+          dd.style.display = 'none';
+        }
+      });
     }
 
     async function loadData(cursor = null) {
@@ -152,6 +239,10 @@
       try {
         let url = `/api/events?limit=20`;
         if (cursor) url += `&cursor=${encodeURIComponent(cursor)}`;
+        
+        // Apply filters
+        let searchQuery = currentSearch || currentCompany;
+        if (searchQuery) url += `&search=${encodeURIComponent(searchQuery)}`;
         if (currentStatus) url += `&status=${encodeURIComponent(currentStatus)}`;
 
         const res = await window.api.get(url);
@@ -160,6 +251,25 @@
       } catch (err) {
         window.showToast(err.message, 'error');
         document.getElementById('table-body').innerHTML = `<tr><td colspan="5" class="text-center text-muted">Failed to load data</td></tr>`;
+      }
+    }
+
+    async function loadCompanies() {
+      try {
+        const res = await window.api.get('/api/events?limit=999');
+        const companies = [...new Set(res.data.map(e => e.client_company).filter(Boolean))].sort();
+        allCompanies = companies;
+        
+        const select = document.getElementById('company-filter');
+        const defaultOption = select.querySelector('option[value=""]');
+        companies.forEach(company => {
+          const option = document.createElement('option');
+          option.value = company;
+          option.textContent = company;
+          select.appendChild(option);
+        });
+      } catch (err) {
+        console.error('Failed to load companies:', err);
       }
     }
 
@@ -196,8 +306,31 @@
     }
 
     document.addEventListener('DOMContentLoaded', () => {
+      loadCompanies();
+      setupCompanySearch();
       loadData(null);
 
+      // Company search with debounce
+      let searchTimeout;
+      document.getElementById('company-search').addEventListener('input', (e) => {
+        clearTimeout(searchTimeout);
+        currentSearch = e.target.value;
+        searchTimeout = setTimeout(() => {
+          window.resetPagination();
+          loadData(null);
+        }, 300);
+      });
+
+      // Company filter dropdown
+      document.getElementById('company-filter').addEventListener('change', (e) => {
+        currentCompany = e.target.value;
+        currentSearch = '';
+        document.getElementById('company-search').value = '';
+        window.resetPagination();
+        loadData(null);
+      });
+
+      // Status filter
       document.getElementById('status-filter').addEventListener('change', (e) => {
         currentStatus = e.target.value;
         window.resetPagination();
@@ -206,12 +339,18 @@
 
       document.getElementById('event-form').addEventListener('submit', async (e) => {
         e.preventDefault();
+        const companyValue = document.getElementById('client_company').value;
+        if (!companyValue) {
+          window.showToast('Please select or add a company', 'error');
+          return;
+        }
+
         const btn = document.getElementById('submit-btn');
         try {
           btn.classList.add('loading');
           await window.api.post('/api/events', {
             event_name: document.getElementById('event_name').value,
-            client_company: document.getElementById('client_company').value,
+            client_company: companyValue,
             place: document.getElementById('place').value,
             event_date: document.getElementById('event_date').value,
             event_time: document.getElementById('event_time').value,
@@ -221,6 +360,7 @@
           toggleModal('event-modal', false);
           document.getElementById('event-form').reset();
           window.resetPagination();
+          loadCompanies();
           loadData(null);
         } catch (err) {
           window.showToast(err.message, 'error');
