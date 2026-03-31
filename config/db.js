@@ -1,23 +1,29 @@
-const dns = require('dns');
 const postgres = require('postgres');
 require('dotenv').config();
 
-// Prefer IPv4 results to avoid environments where IPv6 is unreachable (ENETUNREACH).
-if (typeof dns.setDefaultResultOrder === 'function') {
-  try {
-    dns.setDefaultResultOrder('ipv4first');
-  } catch (err) {
-    console.warn('Could not set DNS result order to ipv4first:', err.message);
-  }
+let connectionString = process.env.DATABASE_URL || process.env.POSTGRES_URL;
+
+if (!connectionString) {
+  throw new Error("Missing DATABASE_URL or POSTGRES_URL environment variable. Please check your Vercel and local environment settings.");
 }
 
-if (!process.env.DATABASE_URL) {
-  console.error("Missing DATABASE_URL environment variable.");
-  process.exit(1);
+// Strip any accidental surrounding quotes that might have been pasted into Vercel dashboard
+if ((connectionString.startsWith('"') && connectionString.endsWith('"')) || 
+    (connectionString.startsWith("'") && connectionString.endsWith("'"))) {
+  connectionString = connectionString.slice(1, -1);
 }
 
-// Initialize Postgres connection. If the host resolves to both IPv6 and IPv4,
-// Node now prefers IPv4, avoiding ENETUNREACH in IPv6-only routing environments.
-const sql = postgres(process.env.DATABASE_URL);
+// Ensure the connection string is actually a valid Postgres URL
+if (!connectionString.startsWith('postgres://') && !connectionString.startsWith('postgresql://')) {
+  throw new Error(`Invalid database connection string format. Must start with "postgres://" or "postgresql://". Received: ${connectionString.substring(0, 15)}...`);
+}
+
+// Initialize Postgres connection
+// 'ssl: require' is typically mandatory for querying Supabase/Neon from remote environments like Vercel.
+const isLocalhost = connectionString.includes('localhost') || connectionString.includes('127.0.0.1');
+
+const sql = postgres(connectionString, {
+  ssl: isLocalhost ? false : 'require',
+});
 
 module.exports = { sql };
