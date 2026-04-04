@@ -11,7 +11,6 @@
   let overlay = null;
   let toggle = null;
 
-  // Create and insert toggle button and overlay if they don't exist
   function initMobileMenu() {
     toggle = document.querySelector('.sidebar-toggle');
     overlay = document.querySelector('.sidebar-overlay');
@@ -48,16 +47,21 @@
       });
     });
 
-    const closeBtn = document.createElement('button');
-    closeBtn.classList.add('sidebar-close-btn');
-    closeBtn.setAttribute('aria-label', 'Close navigation menu');
-    closeBtn.innerHTML = '&times;';
-    closeBtn.type = 'button';
+    const existingCloseBtn = document.querySelector('.sidebar-close-btn');
+    if (!existingCloseBtn) {
+      const closeBtn = document.createElement('button');
+      closeBtn.classList.add('sidebar-close-btn');
+      closeBtn.setAttribute('aria-label', 'Close navigation menu');
+      closeBtn.innerHTML = '&times;';
+      closeBtn.type = 'button';
 
-    const header = document.querySelector('.sidebar-header');
-    if (header && !header.querySelector('.sidebar-close-btn')) {
-      header.appendChild(closeBtn);
-      closeBtn.addEventListener('click', closeSidebar);
+      const header = document.querySelector('.sidebar-header');
+      if (header) {
+        header.appendChild(closeBtn);
+        closeBtn.addEventListener('click', closeSidebar);
+      }
+    } else {
+      existingCloseBtn.addEventListener('click', closeSidebar);
     }
 
     document.addEventListener('click', (e) => {
@@ -70,7 +74,7 @@
   }
 
   function openSidebar() {
-    if (sidebar) {
+    if (sidebar && window.innerWidth < 768) {
       sidebar.classList.add('mobile-open');
       appContainer.classList.add('sidebar-open');
       if (overlay) overlay.classList.add('active');
@@ -87,7 +91,7 @@
   }
 
   function closeSidebar() {
-    if (sidebar && sidebar.classList.contains('mobile-open')) {
+    if (sidebar) {
       sidebar.classList.remove('mobile-open');
       appContainer.classList.remove('sidebar-open');
       if (overlay) overlay.classList.remove('active');
@@ -95,14 +99,12 @@
     }
   }
 
-  // Initialize when DOM is ready
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', initMobileMenu);
   } else {
     initMobileMenu();
   }
 
-  // Handle window resize to close sidebar on desktop
   let resizeTimer;
   window.addEventListener('resize', () => {
     clearTimeout(resizeTimer);
@@ -112,9 +114,11 @@
       }
     }, 250);
   });
-  // Close sidebar on Escape key press (mobile only)
+
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape' && window.innerWidth < 768 && appContainer.classList.contains('sidebar-open')) {
       closeSidebar();
     }
-  });})();
+  });
+
+})();
