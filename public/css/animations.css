@@ -113,14 +113,110 @@ body.page-exit .page-overlay {
 }
 
 /* TOAST ANIMATIONS */
-.toast-container { position: fixed; top: 20px; right: 20px; z-index: 10000; display: flex; flex-direction: column; gap: 10px; }
-.toast {
-  background: var(--surface-2); border: 1px solid var(--border); color: var(--white);
-  padding: 16px 20px; border-radius: 4px; font-size: 14px;
-  box-shadow: 0 10px 30px rgba(0,0,0,0.5);
-  transform: translateX(120%); transition: transform 0.3s cubic-bezier(0.16,1,0.3,1), opacity 0.3s;
+.toast-container { 
+  position: fixed; 
+  top: 20px; 
+  right: 20px; 
+  z-index: 10000; 
+  display: flex; 
+  flex-direction: column; 
+  gap: 10px;
 }
+
+@media (max-width: 767px) {
+  .toast-container {
+    top: auto;
+    bottom: 20px;
+    right: 16px;
+    left: 16px;
+    width: auto;
+  }
+}
+
+.toast {
+  background: var(--surface-2); 
+  border: 1px solid var(--border); 
+  color: var(--white);
+  padding: 16px 20px; 
+  border-radius: 4px; 
+  font-size: 14px;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+  transform: translateX(120%); 
+  transition: transform 0.3s cubic-bezier(0.16,1,0.3,1), opacity 0.3s;
+}
+
 .toast.toast-show { transform: translateX(0); }
 .toast.toast-hide { transform: translateX(120%); opacity: 0; }
 .toast-success { border-left: 3px solid var(--success); }
 .toast-error { border-left: 3px solid var(--danger); }
+
+/* Reduced motion preferences */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Mobile animations optimization */
+@media (max-width: 767px) {
+  .global-spotlight { display: none; }
+  
+  .stagger-in {
+    opacity: 0; 
+    transform: translateY(12px);
+    animation: fadeUpMobile 0.25s cubic-bezier(0.16,1,0.3,1) forwards;
+    animation-delay: calc(var(--i, 0) * 30ms);
+  }
+  
+  @keyframes fadeUpMobile {
+    to { opacity: 1; transform: translateY(0); }
+  }
+  
+  .sidebar-enter {
+    animation: slideinLeftMobile 0.3s cubic-bezier(0.16,1,0.3,1) 0.1s forwards;
+  }
+  
+  @keyframes slideinLeftMobile { 
+    to { transform: translateX(0); } 
+  }
+  
+  .header-enter {
+    opacity: 0; 
+    transform: translateY(-10px);
+    animation: dropinMobile 0.25s cubic-bezier(0.16,1,0.3,1) 0.15s forwards;
+  }
+  
+  @keyframes dropinMobile {
+    to { opacity: 1; transform: translateY(0); }
+  }
+  
+  .page-overlay {
+    animation: liftOverlayMobile 0.25s cubic-bezier(0.16,1,0.3,1) 0.4s forwards;
+  }
+  
+  @keyframes liftOverlayMobile {
+    to { transform: translateY(-100%); opacity: 0; pointer-events: none; }
+  }
+  
+  body.page-exit .page-overlay {
+    animation: dropOverlayMobile 0.2s cubic-bezier(0.16,1,0.3,1) forwards;
+  }
+  
+  @keyframes dropOverlayMobile {
+    from { transform: translateY(-100%); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+  }
+  
+  .btn.loading::after {
+    font-size: 16px;
+  }
+  
+  .shake { animation: shakeMobile 0.3s cubic-bezier(.36,.07,.19,.97) both; }
+  @keyframes shakeMobile {
+    0%,100%{transform: translateX(0)} 
+    25%{transform: translateX(-3px)} 
+    75%{transform: translateX(3px)}
+  }
+}
