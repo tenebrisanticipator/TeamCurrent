@@ -58,10 +58,16 @@
       const header = document.querySelector('.sidebar-header');
       if (header) {
         header.appendChild(closeBtn);
-        closeBtn.addEventListener('click', closeSidebar);
+        closeBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          closeSidebar();
+        });
       }
     } else {
-      existingCloseBtn.addEventListener('click', closeSidebar);
+      existingCloseBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        closeSidebar();
+      });
     }
 
     document.addEventListener('click', (e) => {

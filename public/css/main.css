@@ -198,6 +198,9 @@ a { text-decoration: none; color: inherit; }
   line-height: 1;
   cursor: pointer;
   opacity: 0.8;
+  padding: 0;
+  width: 32px;
+  height: 32px;
 }
 .sidebar-close-btn:hover {
   opacity: 1;
@@ -209,8 +212,8 @@ a { text-decoration: none; color: inherit; }
   }
 }
 
-
 .sidebar-header {
+  position: relative;
   padding: 24px; 
   border-bottom: 1px solid var(--border);
   display: flex; 
