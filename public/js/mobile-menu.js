@@ -48,8 +48,9 @@
     });
 
     const existingCloseBtn = document.querySelector('.sidebar-close-btn');
+    const closeBtn = existingCloseBtn || document.createElement('button');
+
     if (!existingCloseBtn) {
-      const closeBtn = document.createElement('button');
       closeBtn.classList.add('sidebar-close-btn');
       closeBtn.setAttribute('aria-label', 'Close navigation menu');
       closeBtn.innerHTML = '&times;';
@@ -58,19 +59,26 @@
       const header = document.querySelector('.sidebar-header');
       if (header) {
         header.appendChild(closeBtn);
-        closeBtn.addEventListener('click', (e) => {
-          e.stopPropagation();
-          closeSidebar();
-        });
+      } else if (sidebar) {
+        sidebar.appendChild(closeBtn);
       }
-    } else {
-      existingCloseBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        closeSidebar();
-      });
     }
 
+    closeBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      closeSidebar();
+    });
+    closeBtn.addEventListener('touchstart', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      closeSidebar();
+    });
+
     document.addEventListener('click', (e) => {
+      if (e.target.closest('.sidebar-close-btn')) {
+        return;
+      }
+
       if (sidebar && appContainer && appContainer.classList.contains('sidebar-open')) {
         if (!sidebar.contains(e.target) && !toggle.contains(e.target) && !overlay.contains(e.target)) {
           closeSidebar();
@@ -82,7 +90,12 @@
   function openSidebar() {
     if (sidebar && window.innerWidth < 768) {
       sidebar.classList.add('mobile-open');
-      appContainer.classList.add('sidebar-open');
+      sidebar.style.transform = 'translateX(0)';
+      if (appContainer) {
+        appContainer.classList.add('sidebar-open');
+      } else {
+        document.body.classList.add('sidebar-open');
+      }
       if (overlay) overlay.classList.add('active');
       document.body.style.overflow = 'hidden';
     }
@@ -99,7 +112,12 @@
   function closeSidebar() {
     if (sidebar) {
       sidebar.classList.remove('mobile-open');
-      appContainer.classList.remove('sidebar-open');
+      sidebar.style.transform = 'translateX(-100%)';
+      if (appContainer) {
+        appContainer.classList.remove('sidebar-open');
+      } else {
+        document.body.classList.remove('sidebar-open');
+      }
       if (overlay) overlay.classList.remove('active');
       document.body.style.overflow = '';
     }
