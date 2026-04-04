@@ -8,11 +8,14 @@
 
   const sidebar = document.querySelector('.sidebar');
   const appContainer = document.querySelector('.app-container');
-  
-  // Create and insert toggle button if it doesn't exist
+  let overlay = null;
+  let toggle = null;
+
+  // Create and insert toggle button and overlay if they don't exist
   function initMobileMenu() {
-    let toggle = document.querySelector('.sidebar-toggle');
-    
+    toggle = document.querySelector('.sidebar-toggle');
+    overlay = document.querySelector('.sidebar-overlay');
+
     if (!toggle) {
       toggle = document.createElement('button');
       toggle.classList.add('sidebar-toggle');
@@ -21,60 +24,65 @@
       toggle.setAttribute('aria-label', 'Toggle navigation menu');
       document.body.insertBefore(toggle, document.body.firstChild);
     }
-    
-    // Toggle sidebar on button click
+
+    if (!overlay) {
+      overlay = document.createElement('div');
+      overlay.classList.add('sidebar-overlay');
+      overlay.setAttribute('aria-hidden', 'true');
+      document.body.appendChild(overlay);
+    }
+
     toggle.addEventListener('click', (e) => {
       e.stopPropagation();
       toggleSidebar();
     });
-    
-    // Close sidebar when clicking on a nav item
+
+    overlay.addEventListener('click', closeSidebar);
+
     const navItems = document.querySelectorAll('.nav-item');
     navItems.forEach(item => {
-      item.addEventListener('click', (e) => {
-        // Only close on mobile
+      item.addEventListener('click', () => {
         if (window.innerWidth < 768) {
           closeSidebar();
         }
       });
     });
 
-    // Close sidebar when clicking on main content area (mobile only)
-    const mainContent = document.querySelector('.main-content');
-    if (mainContent) {
-      mainContent.addEventListener('click', (e) => {
-        if (window.innerWidth < 768 && appContainer.classList.contains('sidebar-open')) {
-          closeSidebar();
-        }
-      });
+    const closeBtn = document.createElement('button');
+    closeBtn.classList.add('sidebar-close-btn');
+    closeBtn.setAttribute('aria-label', 'Close navigation menu');
+    closeBtn.innerHTML = '&times;';
+    closeBtn.type = 'button';
+
+    const header = document.querySelector('.sidebar-header');
+    if (header && !header.querySelector('.sidebar-close-btn')) {
+      header.appendChild(closeBtn);
+      closeBtn.addEventListener('click', closeSidebar);
     }
-    
-    // Close sidebar when clicking outside (on overlay)
+
     document.addEventListener('click', (e) => {
       if (sidebar && appContainer && appContainer.classList.contains('sidebar-open')) {
-        if (!sidebar.contains(e.target) && !toggle.contains(e.target)) {
+        if (!sidebar.contains(e.target) && !toggle.contains(e.target) && !overlay.contains(e.target)) {
           closeSidebar();
         }
       }
     });
+  }
 
-    // Close sidebar when clicking on the overlay itself
-    if (appContainer) {
-      appContainer.addEventListener('click', (e) => {
-        if (appContainer.classList.contains('sidebar-open') && 
-            !sidebar.contains(e.target) && 
-            !toggle.contains(e.target) &&
-            window.innerWidth < 768) {
-          closeSidebar();
-        }
-      });
+  function openSidebar() {
+    if (sidebar) {
+      sidebar.classList.add('mobile-open');
+      appContainer.classList.add('sidebar-open');
+      if (overlay) overlay.classList.add('active');
+      document.body.style.overflow = 'hidden';
     }
   }
 
   function toggleSidebar() {
-    if (sidebar) {
-      sidebar.classList.toggle('mobile-open');
-      appContainer.classList.toggle('sidebar-open');
+    if (sidebar && sidebar.classList.contains('mobile-open')) {
+      closeSidebar();
+    } else {
+      openSidebar();
     }
   }
 
@@ -82,6 +90,8 @@
     if (sidebar && sidebar.classList.contains('mobile-open')) {
       sidebar.classList.remove('mobile-open');
       appContainer.classList.remove('sidebar-open');
+      if (overlay) overlay.classList.remove('active');
+      document.body.style.overflow = '';
     }
   }
 

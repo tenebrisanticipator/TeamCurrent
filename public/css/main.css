@@ -163,18 +163,19 @@ a { text-decoration: none; color: inherit; }
 /* Sidebar visible on mobile when toggled */
 .sidebar.mobile-open { transform: translateX(0); }
 
-/* Mobile overlay when sidebar is open */
-@media (max-width: 767px) {
-  .app-container.sidebar-open::before {
-    content: '';
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: rgba(0, 0, 0, 0.5);
-    z-index: 999;
-  }
+/* Explicit mobile overlay for sidebar */
+.sidebar-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  z-index: 999;
+  transition: opacity 0.25s ease;
+  opacity: 0;
+}
+.sidebar-overlay.active {
+  display: block;
+  opacity: 1;
 }
 
 @media (min-width: 768px) {
@@ -186,6 +187,28 @@ a { text-decoration: none; color: inherit; }
     border-right: 1px solid var(--border);
   }
 }
+
+.sidebar-close-btn {
+  display: none;
+  margin-left: auto;
+  background: transparent;
+  color: var(--white);
+  border: none;
+  font-size: 28px;
+  line-height: 1;
+  cursor: pointer;
+  opacity: 0.8;
+}
+.sidebar-close-btn:hover {
+  opacity: 1;
+}
+
+@media (max-width: 767px) {
+  .sidebar-close-btn {
+    display: block;
+  }
+}
+
 
 .sidebar-header {
   padding: 24px; 
