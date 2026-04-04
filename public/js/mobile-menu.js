@@ -31,17 +31,44 @@
     // Close sidebar when clicking on a nav item
     const navItems = document.querySelectorAll('.nav-item');
     navItems.forEach(item => {
-      item.addEventListener('click', () => {
-        closeSidebar();
+      item.addEventListener('click', (e) => {
+        // Only close on mobile
+        if (window.innerWidth < 768) {
+          closeSidebar();
+        }
       });
     });
+
+    // Close sidebar when clicking on main content area (mobile only)
+    const mainContent = document.querySelector('.main-content');
+    if (mainContent) {
+      mainContent.addEventListener('click', (e) => {
+        if (window.innerWidth < 768 && appContainer.classList.contains('sidebar-open')) {
+          closeSidebar();
+        }
+      });
+    }
     
-    // Close sidebar when clicking outside
+    // Close sidebar when clicking outside (on overlay)
     document.addEventListener('click', (e) => {
-      if (sidebar && !sidebar.contains(e.target) && !toggle.contains(e.target)) {
-        closeSidebar();
+      if (sidebar && appContainer && appContainer.classList.contains('sidebar-open')) {
+        if (!sidebar.contains(e.target) && !toggle.contains(e.target)) {
+          closeSidebar();
+        }
       }
     });
+
+    // Close sidebar when clicking on the overlay itself
+    if (appContainer) {
+      appContainer.addEventListener('click', (e) => {
+        if (appContainer.classList.contains('sidebar-open') && 
+            !sidebar.contains(e.target) && 
+            !toggle.contains(e.target) &&
+            window.innerWidth < 768) {
+          closeSidebar();
+        }
+      });
+    }
   }
 
   function toggleSidebar() {
@@ -75,4 +102,9 @@
       }
     }, 250);
   });
-})();
+  // Close sidebar on Escape key press (mobile only)
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && window.innerWidth < 768 && appContainer.classList.contains('sidebar-open')) {
+      closeSidebar();
+    }
+  });})();
