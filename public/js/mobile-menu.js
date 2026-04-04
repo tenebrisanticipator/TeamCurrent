@@ -11,9 +11,17 @@
   let overlay = null;
   let toggle = null;
 
+  console.log('Mobile menu script loaded');
+  console.log('sidebar found:', !!sidebar);
+  console.log('appContainer found:', !!appContainer);
+
   function initMobileMenu() {
+    console.log('initMobileMenu called');
     toggle = document.querySelector('.sidebar-toggle');
     overlay = document.querySelector('.sidebar-overlay');
+
+    console.log('toggle found:', !!toggle);
+    console.log('overlay found:', !!overlay);
 
     if (!toggle) {
       toggle = document.createElement('button');
@@ -59,16 +67,22 @@
       const header = document.querySelector('.sidebar-header');
       if (header) {
         header.appendChild(closeBtn);
+        console.log('Close button created and added to header');
       } else if (sidebar) {
         sidebar.appendChild(closeBtn);
+        console.log('Close button created and added to sidebar');
       }
+    } else {
+      console.log('Existing close button found');
     }
 
     closeBtn.addEventListener('click', (e) => {
+      console.log('Close button clicked');
       e.stopPropagation();
       closeSidebar();
     });
     closeBtn.addEventListener('touchstart', (e) => {
+      console.log('Close button touchstart');
       e.preventDefault();
       e.stopPropagation();
       closeSidebar();
@@ -110,22 +124,31 @@
   }
 
   function closeSidebar() {
+    console.log('closeSidebar called');
     if (sidebar) {
+      console.log('Removing mobile-open class and setting transform');
       sidebar.classList.remove('mobile-open');
       sidebar.style.transform = 'translateX(-100%)';
       if (appContainer) {
+        console.log('Removing sidebar-open class from appContainer');
         appContainer.classList.remove('sidebar-open');
       } else {
+        console.log('Removing sidebar-open class from body');
         document.body.classList.remove('sidebar-open');
       }
       if (overlay) overlay.classList.remove('active');
       document.body.style.overflow = '';
+      console.log('Sidebar close completed');
+    } else {
+      console.log('Sidebar element not found');
     }
   }
 
   if (document.readyState === 'loading') {
+    console.log('DOM not ready, waiting for DOMContentLoaded');
     document.addEventListener('DOMContentLoaded', initMobileMenu);
   } else {
+    console.log('DOM ready, calling initMobileMenu');
     initMobileMenu();
   }
 
