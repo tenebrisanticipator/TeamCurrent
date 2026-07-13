@@ -25,6 +25,7 @@
         <a href="/pages/inventory.html" class="nav-item">Inventory</a>
         <a href="/pages/purchases.html" class="nav-item">Purchases</a>
         <a href="/pages/events.html" class="nav-item">Events</a>
+        <a href="/pages/lends.html" class="nav-item">Lends</a>
         <a href="/pages/workers.html" class="nav-item admin-only">Workers & Attendance</a>
         <a href="/pages/users.html" class="nav-item admin-only">User Management</a>
         <a href="javascript:void(0)" id="sidebar-logout-btn" class="nav-item" style="margin-top:auto; color:var(--danger); border-top:1px solid var(--border);">Log Out</a>
@@ -50,7 +51,7 @@
       <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 24px;">
 
         <!-- CARD 1 -->
-        <div class="card stagger-in" style="--i:1">
+        <a href="/pages/inventory.html" class="card stagger-in" style="--i:1" aria-label="Total Active Items">
           <svg class="card-bg-icon" viewBox="0 0 24 24">
             <path
               d="M21 16.5c0 .38-.21.71-.53.88l-7.9 4.44c-.16.12-.36.18-.57.18-.21 0-.41-.06-.57-.18l-7.9-4.44A.991.991 0 013 16.5v-9c0-.38.21-.71.53-.88l7.9-4.44c.16-.12.36-.18.57-.18.21 0 .41.06.57.18l7.9 4.44c.32.17.53.5.53.88v9zM12 4.15L5.6 7.7 12 11.25l6.4-3.55L12 4.15z" />
@@ -59,10 +60,10 @@
           <div class="stat-number" id="stat-items">
             <div class="skeleton" style="height: 48px; width: 60px;"></div>
           </div>
-        </div>
+        </a>
 
         <!-- CARD 2 -->
-        <div class="card stagger-in" style="--i:2">
+        <a href="/pages/events.html" class="card stagger-in" style="--i:2" aria-label="Ongoing Events">
           <svg class="card-bg-icon" viewBox="0 0 24 24">
             <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V5h14v14z" />
           </svg>
@@ -70,19 +71,19 @@
           <div class="stat-number" id="stat-events">
             <div class="skeleton" style="height: 48px; width: 60px;"></div>
           </div>
-        </div>
+        </a>
 
         <!-- CARD 3 -->
-        <div class="card stagger-in" style="--i:3">
+        <a href="/pages/workers.html" class="card stagger-in admin-only" style="--i:3" aria-label="Active Workers">
           <svg class="card-bg-icon" viewBox="0 0 24 24">
             <path
               d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z" />
           </svg>
-          <div class="card-title admin-only">Active Workers</div>
-          <div class="stat-number admin-only" id="stat-workers">
+          <div class="card-title">Active Workers</div>
+          <div class="stat-number" id="stat-workers">
             <div class="skeleton" style="height: 48px; width: 60px;"></div>
           </div>
-        </div>
+        </a>
       </div>
     </main>
   </div>

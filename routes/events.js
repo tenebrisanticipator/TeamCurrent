@@ -65,7 +65,7 @@ router.get('/:id', async (req, res) => {
     // Fetch assigned items
     const assignedItems = await sql`
       SELECT ei.id, i.item_id, i.name as item_name, i.unit, ei.quantity_assigned, 
-             ei.quantity_returned, ei.quantity_missing, ei.assigned_at, ei.returned_at
+             ei.quantity_returned, ei.quantity_missing, ei.assigned_at, ei.returned_at, ei.return_note
       FROM event_items ei JOIN items i ON ei.item_id = i.item_id
       WHERE ei.event_id = ${req.params.id}
     `;
@@ -163,7 +163,7 @@ router.post('/:id/assign-stock', authorizeRole(['admin', 'manager']), async (req
 // POST /api/events/:id/return-stock
 router.post('/:id/return-stock', authorizeRole(['admin', 'manager']), async (req, res) => {
   try {
-    const { event_item_id, quantity_returned } = req.body;
+    const { event_item_id, quantity_returned, return_note } = req.body;
     
     const [existing] = await sql`SELECT item_id, quantity_assigned, quantity_returned FROM event_items WHERE id = ${event_item_id}`;
     if (!existing) return res.status(404).json({ error: 'Assignment not found' });
@@ -175,7 +175,15 @@ router.post('/:id/return-stock', authorizeRole(['admin', 'manager']), async (req
 
     // Update event_items
     await sql`
-      UPDATE event_items SET quantity_returned = ${newReturned}, returned_at = NOW(), returned_by = ${req.user.user_id}
+      UPDATE event_items SET 
+        quantity_returned = ${newReturned}, 
+        returned_at = NOW(), 
+        returned_by = ${req.user.user_id},
+        return_note = CASE 
+          WHEN ${return_note || ''} = '' THEN return_note 
+          WHEN return_note IS NULL OR return_note = '' THEN ${return_note} 
+          ELSE return_note || '; ' || ${return_note} 
+        END
       WHERE id = ${event_item_id}
     `;
 

@@ -69,6 +69,10 @@
             <input type="number" id="missing_quantity" class="form-control" min="0" value="0" required>
           </div>
         </div>
+        <div class="form-group">
+          <label>Return Note (Optional)</label>
+          <input type="text" id="return_note" class="form-control" placeholder="e.g. Returned with scratch, driver A...">
+        </div>
         <div class="flex gap-10" style="margin-top:20px;">
           <button type="submit" class="btn btn-primary" id="submit-return-btn" style="flex:1;">Process Return</button>
           <button type="button" class="btn btn-outline" onclick="toggleModal('inward-modal', false)" style="flex:1;">Cancel</button>
@@ -85,6 +89,7 @@
         <a href="/pages/inventory.html" class="nav-item">Inventory</a>
         <a href="/pages/purchases.html" class="nav-item">Purchases</a>
         <a href="/pages/events.html" class="nav-item active">Events</a>
+        <a href="/pages/lends.html" class="nav-item">Lends</a>
         <a href="/pages/workers.html" class="nav-item admin-only">Workers & Attendance</a>
         <a href="/pages/users.html" class="nav-item admin-only">User Management</a>
         <a href="javascript:void(0)" id="sidebar-logout-btn" class="nav-item" style="margin-top:auto; color:var(--danger); border-top:1px solid var(--border);">Log Out</a>
@@ -180,6 +185,7 @@
       document.getElementById('return_current_assigned').value = currentAssigned;
       document.getElementById('return_quantity').value = currentAssigned;
       document.getElementById('missing_quantity').value = 0;
+      document.getElementById('return_note').value = '';
       toggleModal('inward-modal', true);
     }
 
@@ -272,8 +278,8 @@
         container.innerHTML += `
           <div class="list-item">
             <div>
-              <div style="font-weight:bold; font-size:14px;">${w.name}</div>
-              <div style="font-size:12px; color:var(--text-muted);">${w.worker_code} â€¢ ${w.worker_type}</div>
+              <a href="/pages/worker-detail.html?id=${w.worker_id}" style="color: inherit; text-decoration: none; font-weight:bold; font-size:14px;" class="hover-underline">${w.name}</a>
+              <div style="font-size:12px; color:var(--text-muted);">${w.worker_code} &bull; ${w.worker_type}</div>
             </div>
           </div>
         `;
@@ -356,15 +362,20 @@
         const btn = document.getElementById('submit-return-btn');
         try {
           btn.classList.add('loading');
+          btn.disabled = true;
           await window.api.post(`/api/events/${eventId}/return-stock`, {
             event_item_id: document.getElementById('return_item_id').value,
-            quantity_returned: parseInt(document.getElementById('return_quantity').value)
+            quantity_returned: parseInt(document.getElementById('return_quantity').value),
+            return_note: document.getElementById('return_note').value
           });
           window.showToast('Return logged successfully');
           toggleModal('inward-modal', false);
           loadWorkspace();
         } catch(err) { window.showToast(err.message, 'error'); }
-        finally { btn.classList.remove('loading'); }
+        finally {
+          btn.classList.remove('loading');
+          btn.disabled = false;
+        }
       });
 
       // Assign Worker

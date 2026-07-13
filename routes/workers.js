@@ -84,10 +84,16 @@ router.get('/', async (req, res) => {
 // POST /api/workers - Create worker (Admin)
 router.post('/', authorizeRole(['admin']), async (req, res) => {
   try {
-    const { name, phone, address, aadhaar, blood_group, worker_type, joined_date, daily_wage_base } = req.body;
+    const { name, phone, address, aadhaar, blood_group, worker_type, joined_date, monthly_wage } = req.body;
     if (!name || !worker_type) {
       return res.status(400).json({ error: 'Name and Worker Type are required.' });
     }
+
+    const db_phone = phone === undefined ? null : phone;
+    const db_address = address === undefined ? null : address;
+    const db_blood_group = (blood_group === undefined || !blood_group) ? null : blood_group;
+    const db_joined_date = (joined_date === undefined || !joined_date) ? null : joined_date;
+    const db_monthly_wage = (monthly_wage === undefined || !monthly_wage) ? 0 : monthly_wage;
 
     let aadhaarEncrypted = null;
     if (aadhaar && aadhaar !== '••••••••••••') {
@@ -97,8 +103,8 @@ router.post('/', authorizeRole(['admin']), async (req, res) => {
     const workerCode = await generateWorkerId();
 
     const [worker] = await sql`
-      INSERT INTO workers (worker_code, name, phone, address, aadhaar_encrypted, blood_group, worker_type, joined_date, daily_wage_base)
-      VALUES (${workerCode}, ${name}, ${phone}, ${address}, ${aadhaarEncrypted}, ${blood_group || null}, ${worker_type}, ${joined_date || null}, ${daily_wage_base || 0})
+      INSERT INTO workers (worker_code, name, phone, address, aadhaar_encrypted, blood_group, worker_type, joined_date, monthly_wage)
+      VALUES (${workerCode}, ${name}, ${db_phone}, ${db_address}, ${aadhaarEncrypted}, ${db_blood_group}, ${worker_type}, ${db_joined_date}, ${db_monthly_wage})
       RETURNING worker_id, worker_code, name, worker_type
     `;
     
@@ -198,17 +204,27 @@ router.get('/:id', authorizeRole(['admin']), async (req, res) => {
 // PUT /api/workers/:id
 router.put('/:id', authorizeRole(['admin']), async (req, res) => {
   try {
-    const { name, phone, address, aadhaar, blood_group, worker_type, is_active, joined_date, daily_wage_base } = req.body;
+    const { name, phone, address, aadhaar, blood_group, worker_type, is_active, joined_date, monthly_wage } = req.body;
     
+    // Map undefined values defensively to prevent postgres UNDEFINED_VALUE errors
+    const db_name = name === undefined ? null : name;
+    const db_phone = phone === undefined ? null : phone;
+    const db_address = address === undefined ? null : address;
+    const db_blood_group = (blood_group === undefined || !blood_group) ? null : blood_group;
+    const db_worker_type = worker_type === undefined ? null : worker_type;
+    const db_is_active = is_active === undefined ? true : is_active;
+    const db_joined_date = (joined_date === undefined || !joined_date) ? null : joined_date;
+    const db_monthly_wage = (monthly_wage === undefined || !monthly_wage) ? 0 : monthly_wage;
+
     let query;
     if (aadhaar && aadhaar !== '••••••••••••') {
       try {
         const aadhaarEncrypted = encrypt(aadhaar);
         query = sql`
           UPDATE workers SET 
-            name = ${name}, phone = ${phone}, address = ${address}, aadhaar_encrypted = ${aadhaarEncrypted}, 
-            blood_group = ${blood_group || null}, worker_type = ${worker_type}, is_active = ${is_active}, 
-            joined_date = ${joined_date || null}, daily_wage_base = ${daily_wage_base || 0}
+            name = ${db_name}, phone = ${db_phone}, address = ${db_address}, aadhaar_encrypted = ${aadhaarEncrypted}, 
+            blood_group = ${db_blood_group}, worker_type = ${db_worker_type}, is_active = ${db_is_active}, 
+            joined_date = ${db_joined_date}, monthly_wage = ${db_monthly_wage}
           WHERE worker_id = ${req.params.id} RETURNING worker_id
         `;
       } catch (encryptErr) {
@@ -218,9 +234,9 @@ router.put('/:id', authorizeRole(['admin']), async (req, res) => {
     } else {
       query = sql`
         UPDATE workers SET 
-          name = ${name}, phone = ${phone}, address = ${address}, 
-          blood_group = ${blood_group || null}, worker_type = ${worker_type}, is_active = ${is_active}, 
-          joined_date = ${joined_date || null}, daily_wage_base = ${daily_wage_base || 0}
+          name = ${db_name}, phone = ${db_phone}, address = ${db_address}, 
+          blood_group = ${db_blood_group}, worker_type = ${db_worker_type}, is_active = ${db_is_active}, 
+          joined_date = ${db_joined_date}, monthly_wage = ${db_monthly_wage}
         WHERE worker_id = ${req.params.id} RETURNING worker_id
       `;
     }
@@ -231,6 +247,144 @@ router.put('/:id', authorizeRole(['admin']), async (req, res) => {
     res.json({ message: 'Worker updated successfully' });
   } catch (error) {
     console.error('Update worker error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// GET /api/workers/:id/attendance-history
+router.get('/:id/attendance-history', authorizeRole(['admin', 'manager']), async (req, res) => {
+  try {
+    const logs = await sql`
+      SELECT id, date, status, location_note, created_at
+      FROM attendance
+      WHERE worker_id = ${req.params.id}
+      ORDER BY date ASC
+    `;
+
+    const history = [];
+    let currentActive = null;
+
+    for (const log of logs) {
+      const formattedDate = new Date(log.date).toISOString().slice(0, 10);
+      if (log.status === 'present') {
+        if (currentActive) {
+          history.push({
+            active_date: new Date(currentActive.date).toISOString().slice(0, 10),
+            inactive_date: null,
+            note: null,
+            status: 'Active'
+          });
+        }
+        currentActive = log;
+      } else if (log.status === 'absent') {
+        if (currentActive) {
+          history.push({
+            active_date: new Date(currentActive.date).toISOString().slice(0, 10),
+            inactive_date: formattedDate,
+            note: log.location_note || '',
+            status: 'Inactive'
+          });
+          currentActive = null;
+        } else {
+          history.push({
+            active_date: null,
+            inactive_date: formattedDate,
+            note: log.location_note || '',
+            status: 'Inactive'
+          });
+        }
+      }
+    }
+
+    if (currentActive) {
+      history.push({
+        active_date: new Date(currentActive.date).toISOString().slice(0, 10),
+        inactive_date: null,
+        note: null,
+        status: 'Active'
+      });
+    }
+
+    history.reverse();
+    res.json(history);
+  } catch (error) {
+    console.error('Fetch attendance history error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// GET /api/workers/:id/salary-summary
+router.get('/:id/salary-summary', authorizeRole(['admin', 'manager']), async (req, res) => {
+  try {
+    const [worker] = await sql`SELECT monthly_wage FROM workers WHERE worker_id = ${req.params.id}`;
+    if (!worker) return res.status(404).json({ error: 'Worker not found' });
+
+    const monthly_wage = parseFloat(worker.monthly_wage || 0);
+
+    const startOfMonth = new Date();
+    startOfMonth.setDate(1);
+    const startOfMonthStr = startOfMonth.toISOString().slice(0, 10);
+
+    const endOfMonth = new Date(startOfMonth.getFullYear(), startOfMonth.getMonth() + 1, 0);
+    const endOfMonthStr = endOfMonth.toISOString().slice(0, 10);
+
+    const [sumRes] = await sql`
+      SELECT COALESCE(SUM(amount), 0) AS total_given
+      FROM salary_payments
+      WHERE worker_id = ${req.params.id}
+        AND given_date >= ${startOfMonthStr}
+        AND given_date <= ${endOfMonthStr}
+    `;
+
+    const total_given = parseFloat(sumRes.total_given || 0);
+    const remaining = monthly_wage - total_given;
+
+    res.json({
+      monthly_wage,
+      total_given_this_month: total_given,
+      remaining_balance: remaining
+    });
+  } catch (error) {
+    console.error('Fetch salary summary error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// GET /api/workers/:id/payments
+router.get('/:id/payments', authorizeRole(['admin', 'manager']), async (req, res) => {
+  try {
+    const payments = await sql`
+      SELECT sp.*, u.name AS given_by_name
+      FROM salary_payments sp
+      LEFT JOIN users u ON sp.given_by = u.user_id
+      WHERE sp.worker_id = ${req.params.id}
+      ORDER BY sp.given_date DESC, sp.given_time DESC
+    `;
+    res.json(payments);
+  } catch (error) {
+    console.error('Fetch payments error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// POST /api/workers/:id/payments
+router.post('/:id/payments', authorizeRole(['admin', 'manager']), async (req, res) => {
+  try {
+    const { amount, notes } = req.body;
+    if (!amount || isNaN(amount)) return res.status(400).json({ error: 'Amount is required and must be a number' });
+
+    const now = new Date();
+    const given_date = now.toISOString().slice(0, 10);
+    const given_time = now.toTimeString().slice(0, 8);
+
+    const [payment] = await sql`
+      INSERT INTO salary_payments (worker_id, amount, given_by, given_date, given_time, notes)
+      VALUES (${req.params.id}, ${amount}, ${req.user.user_id}, ${given_date}, ${given_time}, ${notes || null})
+      RETURNING *
+    `;
+    res.status(201).json(payment);
+  } catch (error) {
+    console.error('Create payment error:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });

@@ -1,0 +1,556 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Worker Details - Team Current</title>
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/css/main.css">
+  <link rel="stylesheet" href="/css/animations.css">
+  <script src="/js/auth-guard.js"></script>
+  <style>
+    .workspace-grid { display: grid; grid-template-columns: 1.1fr 0.9fr; gap: 24px; }
+    @media (max-width: 1023px) {
+      .workspace-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="page-overlay">
+    <div class="page-overlay-line"></div>
+  </div>
+
+  <!-- Attendance Modal -->
+  <div class="modal-backdrop" id="attendance-modal" onclick="if(event.target===this) toggleModal('attendance-modal', false)">
+    <div class="modal-card">
+      <h3 class="card-title" id="attendance-modal-title" style="color:var(--white); font-size:20px;">Mark Status</h3>
+      <form id="attendance-form" class="mt-20">
+        <input type="hidden" id="attendance-status-val">
+        <div class="form-group">
+          <label id="attendance-date-label">Date</label>
+          <input type="date" id="attendance-date" class="form-control" required>
+        </div>
+        <div class="form-group" id="attendance-note-group">
+          <label>Note / Reason (Optional)</label>
+          <textarea id="attendance-note" class="form-control" placeholder="e.g. Health leave, finished contract..." rows="3"></textarea>
+        </div>
+        <div class="flex gap-10 style-buttons" style="margin-top:20px;">
+          <button type="submit" class="btn btn-primary" id="submit-attendance-btn" style="flex:1;">Submit</button>
+          <button type="button" class="btn btn-outline" onclick="toggleModal('attendance-modal', false)" style="flex:1;">Cancel</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Record Payment Modal -->
+  <div class="modal-backdrop" id="payment-modal" onclick="if(event.target===this) toggleModal('payment-modal', false)">
+    <div class="modal-card">
+      <h3 class="card-title" style="color:var(--white); font-size:20px;">Record Salary Payment</h3>
+      <form id="payment-form" class="mt-20">
+        <div class="form-group">
+          <label>Amount (₹) *</label>
+          <input type="number" id="payment-amount" class="form-control" min="1" step="any" placeholder="e.g. 5000" required>
+        </div>
+        <div class="form-group">
+          <label>Notes / Description (Optional)</label>
+          <textarea id="payment-notes" class="form-control" placeholder="e.g. Partial advance, full month salary..." rows="3"></textarea>
+        </div>
+        <div class="flex gap-10 style-buttons" style="margin-top:20px;">
+          <button type="submit" class="btn btn-primary" id="submit-payment-btn" style="flex:1;">Log Payment</button>
+          <button type="button" class="btn btn-outline" onclick="toggleModal('payment-modal', false)" style="flex:1;">Cancel</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Edit Worker Modal -->
+  <div class="modal-backdrop" id="worker-modal" onclick="if(event.target===this) toggleModal('worker-modal', false)">
+    <div class="modal-card" style="max-width: 600px;">
+      <h3 class="card-title" id="worker-modal-title" style="color:var(--white); font-size:20px;">Edit Worker Profile</h3>
+      <form id="worker-form" class="mt-20">
+        <div class="form-group">
+          <label>Full Name</label>
+          <input type="text" id="edit-name" class="form-control" required>
+        </div>
+        <div class="flex gap-10">
+          <div class="form-group" style="flex:1;">
+            <label>Roles / Duty Type</label>
+            <select id="edit-worker-type" class="form-control" required>
+              <option value="">Select Type</option>
+              <option value="manager">Manager</option>
+              <option value="normal">Normal</option>
+              <option value="driver">Driver</option>
+            </select>
+          </div>
+          <div class="form-group" style="flex:1;">
+            <label>Monthly Wage (₹)</label>
+            <input type="number" id="edit-monthly-wage" class="form-control" min="0">
+          </div>
+        </div>
+        <div class="flex gap-10">
+          <div class="form-group" style="flex:1;">
+            <label>Phone Number</label>
+            <input type="text" id="edit-phone" class="form-control" required>
+          </div>
+          <div class="form-group" style="flex:1;">
+            <label>Blood Group</label>
+            <select id="edit-blood-group" class="form-control">
+              <option value="">Select Blood Group</option>
+              <option value="O+">O+</option>
+              <option value="O-">O-</option>
+              <option value="A+">A+</option>
+              <option value="A-">A-</option>
+              <option value="B+">B+</option>
+              <option value="B-">B-</option>
+              <option value="AB+">AB+</option>
+              <option value="AB-">AB-</option>
+            </select>
+          </div>
+        </div>
+        <div class="flex gap-10">
+          <div class="form-group" style="flex:1;">
+            <label>Joined Date</label>
+            <input type="date" id="edit-joined-date" class="form-control">
+          </div>
+          <div class="form-group" style="flex:1;">
+            <label>Aadhaar Card Number</label>
+            <input type="text" id="edit-aadhaar-number" class="form-control" placeholder="12-digit number">
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Address</label>
+          <textarea id="edit-address" class="form-control" rows="2" placeholder="Street, city..."></textarea>
+        </div>
+        <div class="form-group flex items-center gap-10 mt-10">
+          <input type="checkbox" id="edit-is-active" style="width: 18px; height: 18px; cursor: pointer;">
+          <label for="edit-is-active" style="cursor: pointer; margin-bottom: 0;">Is Active / On Payroll</label>
+        </div>
+        <div class="flex gap-10 style-buttons" style="margin-top:20px;">
+          <button type="submit" class="btn btn-primary" id="submit-edit-btn" style="flex:1;">Save Profile</button>
+          <button type="button" class="btn btn-outline" onclick="toggleModal('worker-modal', false)" style="flex:1;">Cancel</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div class="app-container">
+    <!-- SIDEBAR -->
+    <aside class="sidebar sidebar-enter">
+      <div class="sidebar-header"><div class="logo-badge">TC</div><div class="brand-name">TEAM CURRENT</div></div>
+      <nav class="nav-menu">
+        <a href="/pages/dashboard.html" class="nav-item">Dashboard</a>
+        <a href="/pages/inventory.html" class="nav-item">Inventory</a>
+        <a href="/pages/purchases.html" class="nav-item">Purchases</a>
+        <a href="/pages/events.html" class="nav-item">Events</a>
+        <a href="/pages/lends.html" class="nav-item">Lends</a>
+        <a href="/pages/workers.html" class="nav-item active admin-only">Workers & Attendance</a>
+        <a href="/pages/users.html" class="nav-item admin-only">User Management</a>
+        <a href="javascript:void(0)" id="sidebar-logout-btn" class="nav-item" style="margin-top:auto; color:var(--danger); border-top:1px solid var(--border);">Log Out</a>
+      </nav>
+      <div class="sidebar-footer">
+        <svg class="truss-accent" viewBox="0 0 100 40"><path d="M0,40 L20,0 L40,40 M20,0 L100,0 M40,40 L100,40 M20,0 L40,40 M40,0 L60,40 M60,0 L80,40 M80,0 L100,40"/></svg>
+      </div>
+    </aside>
+
+    <!-- MAIN CONTENT -->
+    <main class="main-content" style="padding: 20px 30px;">
+      <header class="header header-enter" style="margin-bottom: 25px; padding-bottom: 15px;">
+        <div>
+          <h1 class="header-title" style="margin-bottom: 5px;" id="worker-name">-</h1>
+          <div style="font-size: 14px; color: var(--text-muted);" id="worker-subtext">-</div>
+        </div>
+        <div class="flex gap-10 items-center">
+          <button class="btn btn-outline admin-only" onclick="openEditModal()" style="padding: 6px 12px;">Edit Profile</button>
+          <a href="/pages/workers.html" class="btn btn-outline" style="padding: 6px 12px;">Back</a>
+        </div>
+      </header>
+
+      <!-- Worker Details Top Section -->
+      <div class="card stagger-in" style="--i:1; margin-bottom: 25px; padding: 20px;">
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px;">
+          <div>
+            <label style="display: block; font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Worker Code</label>
+            <div id="detail-code" style="font-weight: bold; font-size: 15px; color: var(--white);">-</div>
+          </div>
+          <div>
+            <label style="display: block; font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Phone Number</label>
+            <div id="detail-phone" style="font-size: 14px; color: var(--white);">-</div>
+          </div>
+          <div>
+            <label style="display: block; font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Role / Duty</label>
+            <div id="detail-role" style="font-size: 14px; color: var(--white);">-</div>
+          </div>
+          <div>
+            <label style="display: block; font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Status</label>
+            <div id="detail-status">-</div>
+          </div>
+          <div>
+            <label style="display: block; font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Blood Group</label>
+            <div id="detail-blood" style="font-size: 14px; color: var(--white);">-</div>
+          </div>
+          <div>
+            <label style="display: block; font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Joined Date</label>
+            <div id="detail-joined" style="font-size: 14px; color: var(--white);">-</div>
+          </div>
+          <div>
+            <label style="display: block; font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Aadhaar Number</label>
+            <div id="detail-aadhaar" style="font-size: 14px; color: var(--white); font-family: monospace;">-</div>
+          </div>
+          <div>
+            <label style="display: block; font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Address</label>
+            <div id="detail-address" style="font-size: 14px; color: var(--text-muted); line-height: 1.4;">-</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Two-Column Workspaces -->
+      <div class="workspace-grid">
+        
+        <!-- LEFT COLUMN: Manual Attendance -->
+        <div class="stagger-in" style="--i:2;">
+          <div class="flex justify-between items-center mb-10">
+            <h2 style="font-size:18px;">Manual Attendance Log</h2>
+            <div class="flex gap-10">
+              <button class="btn btn-primary" style="padding: 5px 10px; font-size:12px; background: var(--success); border-color: var(--success);" onclick="openAttendanceModal(true)">Mark Active</button>
+              <button class="btn btn-outline" style="padding: 5px 10px; font-size:12px; border-color: var(--danger); color: var(--danger);" onclick="openAttendanceModal(false)">Mark Inactive</button>
+            </div>
+          </div>
+          <div class="card" style="padding: 15px; min-height: 400px;">
+            <div class="table-container">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Active Date</th>
+                    <th>Inactive Date</th>
+                    <th>Days Worked</th>
+                    <th>Notes</th>
+                  </tr>
+                </thead>
+                <tbody id="attendance-log-body">
+                  <tr><td colspan="4" class="text-center text-muted">Loading attendance logs...</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- RIGHT COLUMN: Salary & Payments -->
+        <div class="stagger-in" style="--i:3;">
+          <div class="flex justify-between items-center mb-10">
+            <h2 style="font-size:18px;">Salary & Payments</h2>
+            <button class="btn btn-primary" style="padding: 5px 10px; font-size:12px;" onclick="openPaymentModal()">Record Payment</button>
+          </div>
+
+          <!-- Summary Panel -->
+          <div class="card mb-20" style="padding: 20px; background: rgba(255,255,255,0.02); border: 1px solid var(--border);">
+            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; text-align: center;">
+              <div>
+                <div style="font-size: 10px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px;">Monthly Wage</div>
+                <div id="stat-monthly-wage" style="font-size: 18px; font-weight: bold; color: var(--white); margin-top: 5px;">₹0.00</div>
+              </div>
+              <div>
+                <div style="font-size: 10px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px;">Paid (Month)</div>
+                <div id="stat-paid-this-month" style="font-size: 18px; font-weight: bold; color: var(--success); margin-top: 5px;">₹0.00</div>
+              </div>
+              <div>
+                <div style="font-size: 10px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px;">Remaining</div>
+                <div id="stat-remaining" style="font-size: 18px; font-weight: bold; color: var(--brand); margin-top: 5px;">₹0.00</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Payments Log -->
+          <div class="card" style="padding: 15px; min-height: 315px;">
+            <div class="table-container">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Amount</th>
+                    <th>Given By</th>
+                    <th>Date / Time</th>
+                    <th>Notes</th>
+                  </tr>
+                </thead>
+                <tbody id="payments-log-body">
+                  <tr><td colspan="4" class="text-center text-muted">Loading payments log...</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </main>
+  </div>
+
+  <script src="/js/api.js"></script>
+  <script src="/js/toast.js"></script>
+  <script src="/js/transitions.js"></script>
+  <script src="/js/utils.js"></script>
+  <script src="/js/skeleton.js"></script>
+
+  <script>
+    const urlParams = new URLSearchParams(window.location.search);
+    const workerId = urlParams.get('id');
+    let workerData = null;
+
+    function toggleModal(id, show) {
+      document.getElementById(id).classList.toggle('open', show);
+    }
+
+    // Modal triggers
+    function openAttendanceModal(isActive) {
+      document.getElementById('attendance-modal-title').textContent = isActive ? 'Mark Worker Active' : 'Mark Worker Inactive';
+      document.getElementById('attendance-status-val').value = isActive ? 'present' : 'absent';
+      document.getElementById('attendance-date-label').textContent = isActive ? 'Active Date' : 'Inactive Date';
+      document.getElementById('attendance-date').value = new Date().toISOString().slice(0, 10);
+      
+      const noteGroup = document.getElementById('attendance-note-group');
+      if (isActive) {
+        noteGroup.style.display = 'none';
+        document.getElementById('attendance-note').required = false;
+      } else {
+        noteGroup.style.display = 'block';
+        document.getElementById('attendance-note').value = '';
+      }
+      
+      toggleModal('attendance-modal', true);
+    }
+
+    function openPaymentModal() {
+      document.getElementById('payment-amount').value = '';
+      document.getElementById('payment-notes').value = '';
+      toggleModal('payment-modal', true);
+    }
+
+    function openEditModal() {
+      if(!workerData) return;
+      document.getElementById('edit-name').value = workerData.name || '';
+      document.getElementById('edit-worker-type').value = workerData.worker_type || '';
+      document.getElementById('edit-monthly-wage').value = workerData.monthly_wage || 0;
+      document.getElementById('edit-phone').value = workerData.phone || '';
+      document.getElementById('edit-address').value = workerData.address || '';
+      document.getElementById('edit-blood-group').value = workerData.blood_group || '';
+      document.getElementById('edit-joined-date').value = workerData.joined_date || '';
+      document.getElementById('edit-aadhaar-number').value = workerData.aadhaar || '••••••••••••';
+      document.getElementById('edit-is-active').checked = workerData.is_active;
+      toggleModal('worker-modal', true);
+    }
+
+    async function loadWorkerDetails() {
+      if (!workerId) return window.location.href = '/pages/workers.html';
+      try {
+        const data = await window.api.get(`/api/workers/${workerId}`);
+        workerData = data;
+
+        document.getElementById('worker-name').textContent = data.name;
+        document.getElementById('worker-subtext').textContent = `${data.worker_code} • ${data.worker_type}`;
+
+        document.getElementById('detail-code').textContent = data.worker_code;
+        document.getElementById('detail-phone').textContent = data.phone || 'N/A';
+        document.getElementById('detail-role').textContent = data.worker_type;
+        document.getElementById('detail-blood').textContent = data.blood_group || 'N/A';
+        document.getElementById('detail-joined').textContent = data.joined_date ? window.formatDateISTOnly(data.joined_date) : 'N/A';
+        document.getElementById('detail-aadhaar').textContent = data.aadhaar ? data.aadhaar.replace(/(\d{4})/g, '$1 ').trim() : 'Not provided';
+        document.getElementById('detail-address').textContent = data.address || 'Not provided';
+
+        const statusDiv = document.getElementById('detail-status');
+        if (data.is_active) {
+          statusDiv.innerHTML = '<span class="badge" style="background: var(--success); color: var(--white); font-size:11px; padding:3px 8px;">Active</span>';
+        } else {
+          statusDiv.innerHTML = '<span class="badge" style="background: var(--surface-3); color: var(--text-muted); font-size:11px; padding:3px 8px;">Inactive</span>';
+        }
+      } catch(err) {
+        window.showToast('Failed to load worker details', 'error');
+      }
+    }
+
+    async function loadAttendanceLog() {
+      const container = document.getElementById('attendance-log-body');
+      container.innerHTML = '<tr><td colspan="4" class="text-center text-muted">Loading attendance...</td></tr>';
+      try {
+        const history = await window.api.get(`/api/workers/${workerId}/attendance-history`);
+        container.innerHTML = '';
+        if (history.length === 0) {
+          container.innerHTML = '<tr><td colspan="4" class="text-center text-muted">No attendance logs found.</td></tr>';
+          return;
+        }
+
+        history.forEach(h => {
+          let daysText = 'Ongoing';
+          if (h.active_date && h.inactive_date) {
+            const diffTime = Math.abs(new Date(h.inactive_date) - new Date(h.active_date));
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+            daysText = `${diffDays} days`;
+          }
+          
+          container.innerHTML += `
+            <tr>
+              <td>${h.active_date ? window.formatDateISTOnly(h.active_date) : '-'}</td>
+              <td>${h.inactive_date ? window.formatDateISTOnly(h.inactive_date) : '-'}</td>
+              <td><span class="badge" style="background:${daysText==='Ongoing'?'var(--success)':'var(--surface-2)'};">${daysText}</span></td>
+              <td>${h.note || '-'}</td>
+            </tr>
+          `;
+        });
+      } catch (err) {
+        container.innerHTML = '<tr><td colspan="4" class="text-center text-muted">Failed to load attendance</td></tr>';
+      }
+    }
+
+    async function loadSalarySummary() {
+      try {
+        const summary = await window.api.get(`/api/workers/${workerId}/salary-summary`);
+        document.getElementById('stat-monthly-wage').textContent = `₹${summary.monthly_wage.toFixed(2)}`;
+        document.getElementById('stat-paid-this-month').textContent = `₹${summary.total_given_this_month.toFixed(2)}`;
+        document.getElementById('stat-remaining').textContent = `₹${summary.remaining_balance.toFixed(2)}`;
+      } catch (err) {
+        window.showToast('Failed to load salary summary', 'error');
+      }
+    }
+
+    async function loadPaymentsLog() {
+      const container = document.getElementById('payments-log-body');
+      container.innerHTML = '<tr><td colspan="4" class="text-center text-muted">Loading payments...</td></tr>';
+      try {
+        const payments = await window.api.get(`/api/workers/${workerId}/payments`);
+        container.innerHTML = '';
+        if (payments.length === 0) {
+          container.innerHTML = '<tr><td colspan="4" class="text-center text-muted">No payments logged.</td></tr>';
+          return;
+        }
+
+        payments.forEach(p => {
+          container.innerHTML += `
+            <tr>
+              <td style="font-weight:600; color:var(--white);">₹${parseFloat(p.amount).toFixed(2)}</td>
+              <td>${p.given_by_name || 'System'}</td>
+              <td>
+                <div style="font-size:12px;">${window.formatDateISTOnly(p.given_date)}</div>
+                <div style="font-size:10px; color:var(--text-muted); margin-top:2px;">${p.given_time}</div>
+              </td>
+              <td>${p.notes || '-'}</td>
+            </tr>
+          `;
+        });
+      } catch (err) {
+        container.innerHTML = '<tr><td colspan="4" class="text-center text-muted">Failed to load payments</td></tr>';
+      }
+    }
+
+    async function initPage() {
+      if(!workerId) return window.location.href = '/pages/workers.html';
+      
+      if (!window.currentUser) {
+        setTimeout(initPage, 100);
+        return;
+      }
+
+      await loadWorkerDetails();
+      await loadAttendanceLog();
+      await loadSalarySummary();
+      await loadPaymentsLog();
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      initPage();
+
+      // Attendance mark submit
+      document.getElementById('attendance-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const btn = document.getElementById('submit-attendance-btn');
+        try {
+          btn.classList.add('loading');
+          btn.disabled = true;
+          
+          const status = document.getElementById('attendance-status-val').value;
+          const date = document.getElementById('attendance-date').value;
+          const note = document.getElementById('attendance-note').value;
+          
+          await window.api.post(`/api/workers/${workerId}/attendance`, {
+            date,
+            status,
+            location_note: status === 'absent' ? note : 'Active'
+          });
+          
+          window.showToast('Attendance logged successfully');
+          toggleModal('attendance-modal', false);
+          
+          // Reactive updates
+          await loadAttendanceLog();
+        } catch (err) {
+          window.showToast(err.message, 'error');
+        } finally {
+          btn.classList.remove('loading');
+          btn.disabled = false;
+        }
+      });
+
+      // Payment submit
+      document.getElementById('payment-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const btn = document.getElementById('submit-payment-btn');
+        try {
+          btn.classList.add('loading');
+          btn.disabled = true;
+          
+          const amount = parseFloat(document.getElementById('payment-amount').value);
+          const notes = document.getElementById('payment-notes').value;
+          
+          await window.api.post(`/api/workers/${workerId}/payments`, { amount, notes });
+          
+          window.showToast('Payment recorded successfully');
+          toggleModal('payment-modal', false);
+          
+          // Reactive updates
+          await loadSalarySummary();
+          await loadPaymentsLog();
+        } catch (err) {
+          window.showToast(err.message, 'error');
+        } finally {
+          btn.classList.remove('loading');
+          btn.disabled = false;
+        }
+      });
+
+      // Edit worker submit
+      document.getElementById('worker-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const btn = document.getElementById('submit-edit-btn');
+        try {
+          btn.classList.add('loading');
+          btn.disabled = true;
+          
+          const payload = {
+            name: document.getElementById('edit-name').value,
+            worker_type: document.getElementById('edit-worker-type').value,
+            monthly_wage: parseFloat(document.getElementById('edit-monthly-wage').value) || 0,
+            phone: document.getElementById('edit-phone').value,
+            address: document.getElementById('edit-address').value || '',
+            blood_group: document.getElementById('edit-blood-group').value || null,
+            joined_date: document.getElementById('edit-joined-date').value || null,
+            aadhaar: document.getElementById('edit-aadhaar-number').value.replace(/\s/g, ''),
+            is_active: document.getElementById('edit-is-active').checked
+          };
+
+          await window.api.put(`/api/workers/${workerId}`, payload);
+          window.showToast('Worker profile updated successfully');
+          toggleModal('worker-modal', false);
+          
+          // Reload everything
+          await loadWorkerDetails();
+          await loadSalarySummary();
+        } catch (err) {
+          window.showToast(err.message, 'error');
+        } finally {
+          btn.classList.remove('loading');
+          btn.disabled = false;
+        }
+      });
+
+      window.checkRoleAccess();
+    });
+  </script>
+  <script src="/js/mobile-menu.js"></script>
+</body>
+</html>

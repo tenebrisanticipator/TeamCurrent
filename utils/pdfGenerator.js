@@ -395,20 +395,22 @@ async function generateEventChallanWithLogsPDF(eventId, res) {
     y += 4;
 
     const retCols = [
-      { label: 'Item Name',    x: COLOR.marginL + 6,  width: 180 },
-      { label: 'Returned Qty', x: COLOR.marginL + 196, width: 70  },
-      { label: 'Returned By',  x: COLOR.marginL + 276, width: 110 },
-      { label: 'Returned At',  x: COLOR.marginL + 396, width: 110 },
+      { label: 'Item Name',    x: COLOR.marginL + 6,   width: 130 },
+      { label: 'Qty',          x: COLOR.marginL + 141, width: 50  },
+      { label: 'Returned By',  x: COLOR.marginL + 196, width: 85  },
+      { label: 'Returned At',  x: COLOR.marginL + 286, width: 100 },
+      { label: 'Note',         x: COLOR.marginL + 391, width: 110 },
     ];
     y = tableHeader(doc, y, retCols);
 
     returned.forEach((it, idx) => {
       y = safeY(doc, y);
       y = tableRow(doc, y, [
-        { value: it.item_name,                                                      x: COLOR.marginL + 6,  width: 180 },
-        { value: `${it.quantity_returned} ${it.unit}`,                              x: COLOR.marginL + 196, width: 70  },
-        { value: it.returned_by_name || 'Unknown',                                  x: COLOR.marginL + 276, width: 110 },
-        { value: it.returned_at ? new Date(it.returned_at).toLocaleString('en-IN') : '-', x: COLOR.marginL + 396, width: 110 },
+        { value: it.item_name,                                                      x: COLOR.marginL + 6,   width: 130 },
+        { value: `${it.quantity_returned} ${it.unit}`,                              x: COLOR.marginL + 141, width: 50  },
+        { value: it.returned_by_name || 'Unknown',                                  x: COLOR.marginL + 196, width: 85  },
+        { value: it.returned_at ? new Date(it.returned_at).toLocaleString('en-IN') : '-', x: COLOR.marginL + 286, width: 100 },
+        { value: it.return_note || '-',                                             x: COLOR.marginL + 391, width: 110 },
       ], idx % 2 === 1);
     });
   }
@@ -535,10 +537,186 @@ async function generateWorkerAttendancePDF(workerId, monthStr, res) {
   drawFooter(doc, 'System Generated');
   doc.end();
 }
+async function generateLendChallanPDF(lendId, res) {
+  const lends = await sql`
+    SELECT l.*, u.name AS admin_name FROM lends l
+    LEFT JOIN users u ON l.created_by = u.user_id
+    WHERE l.lend_id = ${lendId}
+  `;
+  if (lends.length === 0) return res.status(404).json({ error: 'Lend not found' });
+  const lend = lends[0];
+
+  const items = await sql`
+    SELECT li.*, i.name AS item_name, i.unit
+    FROM lend_items li
+    JOIN items i ON li.item_id = i.item_id
+    WHERE li.lend_id = ${lendId}
+  `;
+
+  const doc = new PDFDocument({ margin: 0, size: 'A4' });
+  res.setHeader('Content-Disposition', `attachment; filename="Lend_Challan_${lendId}.pdf"`);
+  res.setHeader('Content-Type', 'application/pdf');
+  doc.pipe(res);
+
+  let y = drawHeader(doc, 'LEND CHALLAN');
+
+  y = sectionLabel(doc, 'Lend Information', y);
+  y = infoGrid(doc, [
+    ['Lend Name', lend.lend_name],
+    ['Borrower',  lend.borrower_name],
+    ['Company',   lend.borrower_company],
+    ['Venue',     lend.place],
+    ['Date',      `${new Date(lend.lend_date).toLocaleDateString('en-IN')} ${lend.lend_time || ''}`],
+    ['Status',    lend.status.toUpperCase()],
+  ], y);
+
+  y += 8;
+  y = sectionLabel(doc, 'Equipment Assigned', y);
+  y += 4;
+
+  const cols = [
+    { label: 'Item Name',  x: COLOR.marginL + 6,  width: 200 },
+    { label: 'Lent',       x: COLOR.marginL + 230, width: 80  },
+    { label: 'Returned',   x: COLOR.marginL + 320, width: 80  },
+    { label: 'Missing',    x: COLOR.marginL + 410, width: 80  },
+  ];
+  y = tableHeader(doc, y, cols);
+
+  items.forEach((it, idx) => {
+    y = safeY(doc, y);
+    y = tableRow(doc, y, [
+      { value: it.item_name,                          x: COLOR.marginL + 6,  width: 200 },
+      { value: `${it.quantity_lent} ${it.unit}`,      x: COLOR.marginL + 230, width: 80  },
+      { value: `${it.quantity_returned} ${it.unit}`,  x: COLOR.marginL + 320, width: 80  },
+      { value: `${it.quantity_missing} ${it.unit}`,   x: COLOR.marginL + 410, width: 80  },
+    ], idx % 2 === 1);
+  });
+
+  drawFooter(doc, lend.admin_name || 'System Auto');
+  doc.end();
+}
+
+async function generateLendChallanWithLogsPDF(lendId, res) {
+  const lends = await sql`
+    SELECT l.*, u.name AS admin_name FROM lends l
+    LEFT JOIN users u ON l.created_by = u.user_id
+    WHERE l.lend_id = ${lendId}
+  `;
+  if (lends.length === 0) return res.status(404).json({ error: 'Lend not found' });
+  const lend = lends[0];
+
+  const items = await sql`
+    SELECT li.*, i.name AS item_name, i.unit,
+           ua.name AS assigned_by_name, ur.name AS returned_by_name
+    FROM lend_items li
+    JOIN items i ON li.item_id = i.item_id
+    LEFT JOIN users ua ON li.lent_by = ua.user_id
+    LEFT JOIN users ur ON li.returned_by = ur.user_id
+    WHERE li.lend_id = ${lendId}
+  `;
+
+  const doc = new PDFDocument({ margin: 0, size: 'A4' });
+  res.setHeader('Content-Disposition', `attachment; filename="Lend_Challan_With_Logs_${lendId}.pdf"`);
+  res.setHeader('Content-Type', 'application/pdf');
+  doc.pipe(res);
+
+  let y = drawHeader(doc, 'LEND CHALLAN WITH LOGS');
+
+  y = sectionLabel(doc, 'Lend Information', y);
+  y = infoGrid(doc, [
+    ['Lend Name', lend.lend_name],
+    ['Borrower',  lend.borrower_name],
+    ['Company',   lend.borrower_company],
+    ['Venue',     lend.place],
+    ['Date',      `${new Date(lend.lend_date).toLocaleDateString('en-IN')} ${lend.lend_time || ''}`],
+    ['Status',    lend.status.toUpperCase()],
+  ], y);
+
+  // ── Assignment Logs ──
+  y += 8;
+  y = sectionLabel(doc, 'Equipment Assignment Logs', y);
+  y += 4;
+
+  const assignCols = [
+    { label: 'Item Name',    x: COLOR.marginL + 6,  width: 180 },
+    { label: 'Qty',          x: COLOR.marginL + 196, width: 60  },
+    { label: 'Lent By',      x: COLOR.marginL + 266, width: 110 },
+    { label: 'Lent At',      x: COLOR.marginL + 386, width: 115 },
+  ];
+  y = tableHeader(doc, y, assignCols);
+
+  items.forEach((it, idx) => {
+    y = safeY(doc, y);
+    y = tableRow(doc, y, [
+      { value: it.item_name,                                                     x: COLOR.marginL + 6,  width: 180 },
+      { value: `${it.quantity_lent} ${it.unit}`,                                 x: COLOR.marginL + 196, width: 60  },
+      { value: it.assigned_by_name || 'Unknown',                                 x: COLOR.marginL + 266, width: 110 },
+      { value: it.lent_at ? new Date(it.lent_at).toLocaleString('en-IN') : '-',   x: COLOR.marginL + 386, width: 115 },
+    ], idx % 2 === 1);
+  });
+
+  // ── Return Logs ──
+  const returned = items.filter((it) => it.quantity_returned > 0);
+  if (returned.length > 0) {
+    y += 10;
+    y = safeY(doc, y);
+    y = sectionLabel(doc, 'Equipment Return Logs', y);
+    y += 4;
+
+    const retCols = [
+      { label: 'Item Name',    x: COLOR.marginL + 6,   width: 130 },
+      { label: 'Qty',          x: COLOR.marginL + 141, width: 50  },
+      { label: 'Returned By',  x: COLOR.marginL + 196, width: 85  },
+      { label: 'Returned At',  x: COLOR.marginL + 286, width: 100 },
+      { label: 'Note',         x: COLOR.marginL + 391, width: 110 },
+    ];
+    y = tableHeader(doc, y, retCols);
+
+    returned.forEach((it, idx) => {
+      y = safeY(doc, y);
+      y = tableRow(doc, y, [
+        { value: it.item_name,                                                      x: COLOR.marginL + 6,   width: 130 },
+        { value: `${it.quantity_returned} ${it.unit}`,                              x: COLOR.marginL + 141, width: 50  },
+        { value: it.returned_by_name || 'Unknown',                                  x: COLOR.marginL + 196, width: 85  },
+        { value: it.returned_at ? new Date(it.returned_at).toLocaleString('en-IN') : '-', x: COLOR.marginL + 286, width: 100 },
+        { value: it.return_note || '-',                                             x: COLOR.marginL + 391, width: 110 },
+      ], idx % 2 === 1);
+    });
+  }
+
+  // ── Summary ──
+  y += 10;
+  y = safeY(doc, y);
+  y = sectionLabel(doc, 'Equipment Summary', y);
+  y += 4;
+
+  const sumCols = [
+    { label: 'Item Name', x: COLOR.marginL + 6,  width: 200 },
+    { label: 'Lent',      x: COLOR.marginL + 230, width: 80  },
+    { label: 'Returned',  x: COLOR.marginL + 320, width: 80  },
+    { label: 'Missing',   x: COLOR.marginL + 410, width: 80  },
+  ];
+  y = tableHeader(doc, y, sumCols);
+
+  items.forEach((it, idx) => {
+    y = safeY(doc, y);
+    y = tableRow(doc, y, [
+      { value: it.item_name,                         x: COLOR.marginL + 6,  width: 200 },
+      { value: `${it.quantity_lent} ${it.unit}`,     x: COLOR.marginL + 230, width: 80  },
+      { value: `${it.quantity_returned} ${it.unit}`, x: COLOR.marginL + 320, width: 80  },
+      { value: `${it.quantity_missing} ${it.unit}`,  x: COLOR.marginL + 410, width: 80  },
+    ], idx % 2 === 1);
+  });
+
+  drawFooter(doc, lend.admin_name || 'System Auto');
+  doc.end();
+}
 
 module.exports = {
   generatePurchasePDF,
   generateEventChallanPDF,
   generateEventChallanWithLogsPDF,
   generateWorkerAttendancePDF,
+  generateLendChallanPDF,
+  generateLendChallanWithLogsPDF,
 };

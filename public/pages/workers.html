@@ -38,11 +38,16 @@
         <div class="flex gap-10">
           <div class="form-group" style="flex:1;">
             <label>Roles / Duty Type</label>
-            <input type="text" id="worker_type" class="form-control" placeholder="e.g. Rigger, Tech..." required>
+            <select id="worker_type" class="form-control" required>
+              <option value="">Select Type</option>
+              <option value="manager">Manager</option>
+              <option value="normal">Normal</option>
+              <option value="driver">Driver</option>
+            </select>
           </div>
           <div class="form-group" style="flex:1;">
-            <label>Daily Wage Base (₹)</label>
-            <input type="number" id="daily_wage_base" class="form-control" min="0">
+            <label>Monthly Wage (₹)</label>
+            <input type="number" id="monthly_wage" class="form-control" min="0">
           </div>
         </div>
         <div class="flex gap-10">
@@ -92,73 +97,7 @@
     </div>
   </div>
 
-  <!-- Worker Details View Card -->
-  <div class="modal-backdrop" id="view-worker-modal" onclick="if(event.target===this) toggleModal('view-worker-modal', false)">
-    <div class="modal-card" style="max-width: 500px;">
-      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-        <h3 class="card-title" style="color:var(--white); font-size:20px; margin: 0;">Worker Details</h3>
-        <button type="button" class="btn btn-outline" onclick="toggleModal('view-worker-modal', false)" style="padding: 4px 8px; font-size:12px;">Close</button>
-      </div>
-      
-      <div class="detail-card" style="background: var(--surface-2); border-radius: 8px; padding: 20px; display: flex; flex-direction: column; gap: 16px;">
-        
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
-          <div>
-            <label style="display: block; font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Code</label>
-            <div id="view-worker-code" style="font-weight: 600; font-size: 14px; color: var(--white);">-</div>
-          </div>
-          <div>
-            <label style="display: block; font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Status</label>
-            <div id="view-worker-status" style="font-weight: 500; font-size: 12px;">-</div>
-          </div>
-        </div>
 
-        <div>
-          <label style="display: block; font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Full Name</label>
-          <div id="view-worker-name" style="font-weight: 500; font-size: 16px; color: var(--white);">-</div>
-        </div>
-
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
-          <div>
-            <label style="display: block; font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Duty Type</label>
-            <div id="view-worker-type" style="font-size: 14px; color: var(--white);">-</div>
-          </div>
-          <div>
-            <label style="display: block; font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Phone</label>
-            <div id="view-worker-phone" style="font-size: 14px; color: var(--white);">-</div>
-          </div>
-        </div>
-
-        <div>
-          <label style="display: block; font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Address</label>
-          <div id="view-worker-address" style="font-size: 14px; color: var(--text-muted); line-height: 1.5;">-</div>
-        </div>
-
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
-          <div>
-            <label style="display: block; font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Blood Group</label>
-            <div id="view-worker-blood" style="font-size: 14px; color: var(--white); font-weight: 500;">-</div>
-          </div>
-          <div>
-            <label style="display: block; font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Daily Wage (₹)</label>
-            <div id="view-worker-wage" style="font-size: 14px; color: var(--white); font-weight: 500;">-</div>
-          </div>
-        </div>
-
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
-          <div>
-            <label style="display: block; font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Joined Date</label>
-            <div id="view-worker-joined" style="font-size: 14px; color: var(--white);">-</div>
-          </div>
-          <div>
-            <label style="display: block; font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Aadhaar</label>
-            <div id="view-worker-aadhaar" style="font-size: 14px; color: var(--white); font-family: monospace;">-</div>
-          </div>
-        </div>
-
-      </div>
-    </div>
-  </div>
 
 
   <div class="app-container">
@@ -169,6 +108,7 @@
         <a href="/pages/inventory.html" class="nav-item">Inventory</a>
         <a href="/pages/purchases.html" class="nav-item">Purchases</a>
         <a href="/pages/events.html" class="nav-item">Events</a>
+        <a href="/pages/lends.html" class="nav-item">Lends</a>
         <a href="/pages/workers.html" class="nav-item active admin-only">Workers & Attendance</a>
         <a href="/pages/users.html" class="nav-item admin-only">User Management</a>
         <a href="javascript:void(0)" id="sidebar-logout-btn" class="nav-item" style="margin-top:auto; color:var(--danger); border-top:1px solid var(--border);">Log Out</a>
@@ -254,34 +194,7 @@
       toggleModal('worker-modal', true);
     }
 
-    async function viewWorkerDetails(workerId) {
-      try {
-        const worker = await window.api.get(`/api/workers/${workerId}`);
-        
-        // Populate the view card
-        document.getElementById('view-worker-code').textContent = worker.worker_code;
-        document.getElementById('view-worker-name').textContent = worker.name;
-        document.getElementById('view-worker-type').textContent = worker.worker_type || 'N/A';
-        document.getElementById('view-worker-phone').textContent = worker.phone || 'N/A';
-        document.getElementById('view-worker-address').textContent = worker.address || 'Not provided';
-        document.getElementById('view-worker-blood').textContent = worker.blood_group || 'N/A';
-        document.getElementById('view-worker-wage').textContent = worker.daily_wage_base ? `₹${worker.daily_wage_base}` : 'N/A';
-        document.getElementById('view-worker-joined').textContent = worker.joined_date || 'N/A';
-        document.getElementById('view-worker-aadhaar').textContent = worker.aadhaar ? worker.aadhaar.replace(/(\d{4})/g, '$1 ').trim() : 'Not provided';
-        
-        // Status badge
-        const statusDiv = document.getElementById('view-worker-status');
-        if (worker.is_active) {
-          statusDiv.innerHTML = '<span class="badge" style="background: var(--success); color: var(--white);">Active</span>';
-        } else {
-          statusDiv.innerHTML = '<span class="badge" style="background: var(--surface-3); color: var(--text-muted);">Inactive</span>';
-        }
-        
-        toggleModal('view-worker-modal', true);
-      } catch(err) {
-        window.showToast(err.message, 'error');
-      }
-    }
+
 
     async function editWorker(workerId) {
       try {
@@ -295,7 +208,7 @@
         document.getElementById('address').value = worker.address || '';
         document.getElementById('aadhaar_number').value = worker.aadhaar || '••••••••••••';
         document.getElementById('is_active').checked = worker.is_active;
-        document.getElementById('daily_wage_base').value = worker.daily_wage_base || '';
+        document.getElementById('monthly_wage').value = worker.monthly_wage || '';
         document.getElementById('blood_group').value = worker.blood_group || '';
         document.getElementById('joined_date').value = worker.joined_date || '';
         
@@ -353,7 +266,7 @@
           </td>
           <td>
             <div class="flex gap-10">
-              <button class="btn btn-outline" style="padding: 4px 8px; font-size:12px;" onclick="viewWorkerDetails('${w.worker_id}')">View</button>
+              <a href="/pages/worker-detail.html?id=${w.worker_id}" class="btn btn-outline" style="padding: 4px 8px; font-size:12px; display: inline-block; text-decoration: none;">View</a>
               <button class="btn btn-outline admin-only" style="padding: 4px 8px; font-size:12px;" onclick="editWorker('${w.worker_id}')">Edit</button>
             </div>
           </td>
@@ -390,7 +303,7 @@
             aadhaar: aadhaar,
             blood_group: document.getElementById('blood_group').value || null,
             joined_date: document.getElementById('joined_date').value || null,
-            daily_wage_base: document.getElementById('daily_wage_base').value || 0,
+            monthly_wage: document.getElementById('monthly_wage').value || 0,
             is_active: document.getElementById('is_active').checked
           };
 

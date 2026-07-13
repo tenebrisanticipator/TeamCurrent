@@ -41,6 +41,7 @@ apiRouter.use('/items', require('./routes/items'));
 apiRouter.use('/categories', require('./routes/categories'));
 apiRouter.use('/purchases', require('./routes/purchases'));
 apiRouter.use('/events', require('./routes/events'));
+apiRouter.use('/lends', require('./routes/lends'));
 
 // Root redirect
 app.get('/', (req, res) => {

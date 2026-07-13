@@ -93,6 +93,7 @@
       
       try {
         btn.classList.add('loading');
+        btn.disabled = true;
         await window.api.post('/api/auth/login', {
           email: document.getElementById('email').value,
           password: document.getElementById('password').value
@@ -105,6 +106,7 @@
       } catch (err) {
         window.showToast(err.message, 'error');
         btn.classList.remove('loading');
+        btn.disabled = false;
         document.querySelector('.login-card').classList.add('shake');
         setTimeout(() => document.querySelector('.login-card').classList.remove('shake'), 400);
       }
