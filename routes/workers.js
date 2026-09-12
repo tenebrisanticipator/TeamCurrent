@@ -82,30 +82,45 @@ router.get('/', async (req, res) => {
 });
 
 // POST /api/workers - Create worker (Admin)
+// Required fields: name, joined_date
+// Optional fields: phone, address, aadhaar, blood_group, worker_type, monthly_wage
 router.post('/', authorizeRole(['admin']), async (req, res) => {
   try {
-    const { name, phone, address, aadhaar, blood_group, worker_type, joined_date, monthly_wage } = req.body;
-    if (!name || !worker_type) {
-      return res.status(400).json({ error: 'Name and Worker Type are required.' });
+    const { name, joined_date, phone, address, aadhaar, blood_group, worker_type, monthly_wage } = req.body;
+    
+    // Validate required fields
+    if (!name || name.trim() === '') {
+      return res.status(400).json({ error: 'Name is required.' });
+    }
+    
+    if (!joined_date || joined_date.trim() === '') {
+      return res.status(400).json({ error: 'Joining date is required.' });
     }
 
-    const db_phone = phone === undefined ? null : phone;
-    const db_address = address === undefined ? null : address;
-    const db_blood_group = (blood_group === undefined || !blood_group) ? null : blood_group;
-    const db_joined_date = (joined_date === undefined || !joined_date) ? null : joined_date;
-    const db_monthly_wage = (monthly_wage === undefined || !monthly_wage) ? 0 : monthly_wage;
+    // Optional fields with safe defaults
+    const db_phone = phone && phone.trim() !== '' ? phone.trim() : null;
+    const db_address = address && address.trim() !== '' ? address.trim() : null;
+    const db_blood_group = blood_group && blood_group.trim() !== '' ? blood_group.trim() : null;
+    const db_worker_type = worker_type && worker_type.trim() !== '' ? worker_type.trim() : null;
+    const db_monthly_wage = monthly_wage && !isNaN(monthly_wage) && parseFloat(monthly_wage) >= 0 ? parseFloat(monthly_wage) : 0;
 
+    // Handle aadhaar encryption (optional)
     let aadhaarEncrypted = null;
-    if (aadhaar && aadhaar !== '••••••••••••') {
-      aadhaarEncrypted = encrypt(aadhaar);
+    if (aadhaar && aadhaar !== '••••••••••••' && aadhaar.trim() !== '') {
+      try {
+        aadhaarEncrypted = encrypt(aadhaar.trim());
+      } catch (encryptErr) {
+        console.error('Aadhaar encryption error:', encryptErr);
+        return res.status(400).json({ error: 'Invalid Aadhaar format for encryption.' });
+      }
     }
 
     const workerCode = await generateWorkerId();
 
     const [worker] = await sql`
       INSERT INTO workers (worker_code, name, phone, address, aadhaar_encrypted, blood_group, worker_type, joined_date, monthly_wage)
-      VALUES (${workerCode}, ${name}, ${db_phone}, ${db_address}, ${aadhaarEncrypted}, ${db_blood_group}, ${worker_type}, ${db_joined_date}, ${db_monthly_wage})
-      RETURNING worker_id, worker_code, name, worker_type
+      VALUES (${workerCode}, ${name.trim()}, ${db_phone}, ${db_address}, ${aadhaarEncrypted}, ${db_blood_group}, ${db_worker_type}, ${joined_date}, ${db_monthly_wage})
+      RETURNING worker_id, worker_code, name, worker_type, joined_date
     `;
     
     res.status(201).json(worker);
@@ -202,44 +217,69 @@ router.get('/:id', authorizeRole(['admin']), async (req, res) => {
 });
 
 // PUT /api/workers/:id
+// Allows partial updates of optional fields
+// name and joined_date cannot be updated via this endpoint to maintain data integrity
 router.put('/:id', authorizeRole(['admin']), async (req, res) => {
   try {
-    const { name, phone, address, aadhaar, blood_group, worker_type, is_active, joined_date, monthly_wage } = req.body;
+    const { phone, address, aadhaar, blood_group, worker_type, is_active, monthly_wage } = req.body;
     
-    // Map undefined values defensively to prevent postgres UNDEFINED_VALUE errors
-    const db_name = name === undefined ? null : name;
-    const db_phone = phone === undefined ? null : phone;
-    const db_address = address === undefined ? null : address;
-    const db_blood_group = (blood_group === undefined || !blood_group) ? null : blood_group;
-    const db_worker_type = worker_type === undefined ? null : worker_type;
-    const db_is_active = is_active === undefined ? true : is_active;
-    const db_joined_date = (joined_date === undefined || !joined_date) ? null : joined_date;
-    const db_monthly_wage = (monthly_wage === undefined || !monthly_wage) ? 0 : monthly_wage;
-
-    let query;
-    if (aadhaar && aadhaar !== '••••••••••••') {
-      try {
-        const aadhaarEncrypted = encrypt(aadhaar);
-        query = sql`
-          UPDATE workers SET 
-            name = ${db_name}, phone = ${db_phone}, address = ${db_address}, aadhaar_encrypted = ${aadhaarEncrypted}, 
-            blood_group = ${db_blood_group}, worker_type = ${db_worker_type}, is_active = ${db_is_active}, 
-            joined_date = ${db_joined_date}, monthly_wage = ${db_monthly_wage}
-          WHERE worker_id = ${req.params.id} RETURNING worker_id
-        `;
-      } catch (encryptErr) {
-        console.error('Encryption error:', encryptErr.message);
-        return res.status(500).json({ error: 'Encryption failed: ' + encryptErr.message });
-      }
-    } else {
-      query = sql`
-        UPDATE workers SET 
-          name = ${db_name}, phone = ${db_phone}, address = ${db_address}, 
-          blood_group = ${db_blood_group}, worker_type = ${db_worker_type}, is_active = ${db_is_active}, 
-          joined_date = ${db_joined_date}, monthly_wage = ${db_monthly_wage}
-        WHERE worker_id = ${req.params.id} RETURNING worker_id
-      `;
+    // Safe handling of optional fields - only update if provided
+    const updates = {};
+    
+    if (phone !== undefined) {
+      updates.phone = phone && phone.trim() !== '' ? phone.trim() : null;
     }
+    
+    if (address !== undefined) {
+      updates.address = address && address.trim() !== '' ? address.trim() : null;
+    }
+    
+    if (blood_group !== undefined) {
+      updates.blood_group = blood_group && blood_group.trim() !== '' ? blood_group.trim() : null;
+    }
+    
+    if (worker_type !== undefined) {
+      updates.worker_type = worker_type && worker_type.trim() !== '' ? worker_type.trim() : null;
+    }
+    
+    if (is_active !== undefined) {
+      updates.is_active = typeof is_active === 'boolean' ? is_active : true;
+    }
+    
+    if (monthly_wage !== undefined) {
+      updates.monthly_wage = monthly_wage && !isNaN(monthly_wage) && parseFloat(monthly_wage) >= 0 ? parseFloat(monthly_wage) : 0;
+    }
+
+    // Handle aadhaar separately for encryption
+    let hasAadhaarUpdate = false;
+    if (aadhaar !== undefined && aadhaar && aadhaar !== '••••••••••••' && aadhaar.trim() !== '') {
+      try {
+        updates.aadhaar_encrypted = encrypt(aadhaar.trim());
+        hasAadhaarUpdate = true;
+      } catch (encryptErr) {
+        console.error('Aadhaar encryption error:', encryptErr);
+        return res.status(400).json({ error: 'Invalid Aadhaar format for encryption.' });
+      }
+    }
+
+    // Build dynamic UPDATE query based on provided fields
+    const updateFields = Object.entries(updates).map(([key, val]) => {
+      if (key === 'aadhaar_encrypted') {
+        return `${key} = ${sql.unsafe(key === 'aadhaar_encrypted' ? `'${val.replace(/'/g, "''")}'` : String(val))}`;
+      }
+      return `${key} = ${sql.unsafe(key === 'phone' || key === 'address' || key === 'blood_group' || key === 'worker_type' ? `'${val ? val.replace(/'/g, "''") : ''}'` : String(val))}`;
+    });
+
+    if (updateFields.length === 0) {
+      return res.status(400).json({ error: 'No valid fields to update.' });
+    }
+
+    const query = sql`
+      UPDATE workers 
+      SET ${sql.unsafe(updateFields.join(', '))}
+      WHERE worker_id = ${req.params.id} 
+      RETURNING worker_id
+    `;
     
     const updated = await query;
     if (updated.length === 0) return res.status(404).json({ error: 'Worker not found' });
