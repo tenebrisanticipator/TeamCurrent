@@ -88,21 +88,33 @@ router.post('/', authorizeRole(['admin']), async (req, res) => {
     const safeName = typeof name === 'string' ? name.trim() : '';
     const safeJoinedDate = typeof joined_date === 'string' ? joined_date.trim() : joined_date;
 
-    if (!safeName || !safeJoinedDate) {
-      return res.status(400).json({ error: 'Name and joining date are required.' });
+    if (!safeName) {
+      return res.status(400).json({ error: 'Name is required.' });
+    }
+
+    if (!safeJoinedDate) {
+      return res.status(400).json({ error: 'Joining date is required.' });
     }
 
     const db_name = safeName;
-    const db_phone = (phone === undefined || phone === null || !String(phone).trim()) ? null : String(phone).trim();
-    const db_address = (address === undefined || address === null || !String(address).trim()) ? null : String(address).trim();
-    const db_blood_group = (blood_group === undefined || blood_group === null || !String(blood_group).trim()) ? null : String(blood_group).trim();
-    const db_worker_type = (worker_type === undefined || worker_type === null || !String(worker_type).trim()) ? null : String(worker_type).trim();
+    const db_phone = phone && String(phone).trim() ? String(phone).trim() : null;
+    const db_address = address && String(address).trim() ? String(address).trim() : null;
+    const db_blood_group = blood_group && String(blood_group).trim() ? String(blood_group).trim() : null;
+    const db_worker_type = worker_type && String(worker_type).trim() ? String(worker_type).trim() : null;
     const db_joined_date = safeJoinedDate;
-    const db_monthly_wage = (monthly_wage === undefined || monthly_wage === null || monthly_wage === '' || Number(monthly_wage) === 0) ? 0 : monthly_wage;
+    const db_monthly_wage = monthly_wage === undefined || monthly_wage === null || monthly_wage === '' || Number(monthly_wage) === 0 ? 0 : Number(monthly_wage);
 
     let aadhaarEncrypted = null;
     if (aadhaar && aadhaar !== '••••••••••••') {
-      aadhaarEncrypted = encrypt(aadhaar);
+      const cleanAadhaar = String(aadhaar).trim();
+      if (cleanAadhaar) {
+        try {
+          aadhaarEncrypted = encrypt(cleanAadhaar);
+        } catch (encryptErr) {
+          console.error('Aadhaar encryption error:', encryptErr);
+          return res.status(400).json({ error: 'Invalid Aadhaar format for encryption.' });
+        }
+      }
     }
 
     const workerCode = await generateWorkerId();
@@ -110,9 +122,9 @@ router.post('/', authorizeRole(['admin']), async (req, res) => {
     const [worker] = await sql`
       INSERT INTO workers (worker_code, name, phone, address, aadhaar_encrypted, blood_group, worker_type, joined_date, monthly_wage)
       VALUES (${workerCode}, ${db_name}, ${db_phone}, ${db_address}, ${aadhaarEncrypted}, ${db_blood_group}, ${db_worker_type}, ${db_joined_date}, ${db_monthly_wage})
-      RETURNING worker_id, worker_code, name, worker_type
+      RETURNING worker_id, worker_code, name, worker_type, joined_date
     `;
-    
+
     res.status(201).json(worker);
   } catch (error) {
     console.error('Create worker error:', error);
@@ -210,51 +222,57 @@ router.get('/:id', authorizeRole(['admin']), async (req, res) => {
 router.put('/:id', authorizeRole(['admin']), async (req, res) => {
   try {
     const { name, phone, address, aadhaar, blood_group, worker_type, is_active, joined_date, monthly_wage } = req.body;
-    const normalizedName = typeof name === 'string' ? name.trim() : '';
-    const normalizedJoinedDate = typeof joined_date === 'string' ? joined_date.trim() : joined_date;
 
-    if ((name !== undefined && !normalizedName) || (joined_date !== undefined && !normalizedJoinedDate)) {
+    const [existingWorker] = await sql`SELECT * FROM workers WHERE worker_id = ${req.params.id}`;
+    if (!existingWorker) return res.status(404).json({ error: 'Worker not found' });
+
+    const updates = {
+      name: name !== undefined ? (typeof name === 'string' ? name.trim() : '') : existingWorker.name,
+      phone: phone !== undefined ? (String(phone).trim() || null) : existingWorker.phone,
+      address: address !== undefined ? (String(address).trim() || null) : existingWorker.address,
+      blood_group: blood_group !== undefined ? (String(blood_group).trim() || null) : existingWorker.blood_group,
+      worker_type: worker_type !== undefined ? (String(worker_type).trim() || null) : existingWorker.worker_type,
+      is_active: is_active !== undefined ? Boolean(is_active) : existingWorker.is_active,
+      joined_date: joined_date !== undefined ? (typeof joined_date === 'string' ? joined_date.trim() : joined_date) || null : existingWorker.joined_date,
+      monthly_wage: monthly_wage !== undefined ? (Number(monthly_wage) >= 0 ? Number(monthly_wage) : 0) : existingWorker.monthly_wage
+    };
+
+    if (!updates.name || !updates.joined_date) {
       return res.status(400).json({ error: 'Name and joining date are required.' });
     }
-    
-    // Map undefined values defensively to prevent postgres UNDEFINED_VALUE errors
-    const db_name = name === undefined ? null : normalizedName || null;
-    const db_phone = (phone === undefined || phone === null || !String(phone).trim()) ? null : String(phone).trim();
-    const db_address = (address === undefined || address === null || !String(address).trim()) ? null : String(address).trim();
-    const db_blood_group = (blood_group === undefined || blood_group === null || !String(blood_group).trim()) ? null : String(blood_group).trim();
-    const db_worker_type = (worker_type === undefined || worker_type === null || !String(worker_type).trim()) ? null : String(worker_type).trim();
-    const db_is_active = is_active === undefined ? true : is_active;
-    const db_joined_date = (joined_date === undefined || !normalizedJoinedDate) ? null : normalizedJoinedDate;
-    const db_monthly_wage = (monthly_wage === undefined || monthly_wage === null || monthly_wage === '' || Number(monthly_wage) === 0) ? 0 : monthly_wage;
 
-    let query;
-    if (aadhaar && aadhaar !== '••••••••••••') {
-      try {
-        const aadhaarEncrypted = encrypt(aadhaar);
-        query = sql`
-          UPDATE workers SET 
-            name = ${db_name}, phone = ${db_phone}, address = ${db_address}, aadhaar_encrypted = ${aadhaarEncrypted}, 
-            blood_group = ${db_blood_group}, worker_type = ${db_worker_type}, is_active = ${db_is_active}, 
-            joined_date = ${db_joined_date}, monthly_wage = ${db_monthly_wage}
-          WHERE worker_id = ${req.params.id} RETURNING worker_id
-        `;
-      } catch (encryptErr) {
-        console.error('Encryption error:', encryptErr.message);
-        return res.status(500).json({ error: 'Encryption failed: ' + encryptErr.message });
+    if (aadhaar !== undefined) {
+      if (aadhaar === null || aadhaar === '' || aadhaar === '••••••••••••') {
+        updates.aadhaar_encrypted = null;
+      } else {
+        try {
+          updates.aadhaar_encrypted = encrypt(String(aadhaar).trim());
+        } catch (encryptErr) {
+          console.error('Encryption error:', encryptErr.message);
+          return res.status(500).json({ error: 'Encryption failed: ' + encryptErr.message });
+        }
       }
     } else {
-      query = sql`
-        UPDATE workers SET 
-          name = ${db_name}, phone = ${db_phone}, address = ${db_address}, 
-          blood_group = ${db_blood_group}, worker_type = ${db_worker_type}, is_active = ${db_is_active}, 
-          joined_date = ${db_joined_date}, monthly_wage = ${db_monthly_wage}
-        WHERE worker_id = ${req.params.id} RETURNING worker_id
-      `;
+      updates.aadhaar_encrypted = existingWorker.aadhaar_encrypted;
     }
-    
-    const updated = await query;
-    if (updated.length === 0) return res.status(404).json({ error: 'Worker not found' });
-    
+
+    const [updated] = await sql`
+      UPDATE workers SET
+        name = ${updates.name},
+        phone = ${updates.phone},
+        address = ${updates.address},
+        aadhaar_encrypted = ${updates.aadhaar_encrypted},
+        blood_group = ${updates.blood_group},
+        worker_type = ${updates.worker_type},
+        is_active = ${updates.is_active},
+        joined_date = ${updates.joined_date},
+        monthly_wage = ${updates.monthly_wage}
+      WHERE worker_id = ${req.params.id}
+      RETURNING worker_id
+    `;
+
+    if (!updated) return res.status(404).json({ error: 'Worker not found' });
+
     res.json({ message: 'Worker updated successfully' });
   } catch (error) {
     console.error('Update worker error:', error);

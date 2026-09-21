@@ -90,7 +90,7 @@ async function setupDatabase() {
         worker_type VARCHAR CHECK (worker_type IN ('manager','normal','driver')),
         monthly_wage DECIMAL(10,2) DEFAULT 0,
         is_active BOOLEAN DEFAULT true,
-        joined_date DATE,
+        joined_date DATE NOT NULL,
         created_at TIMESTAMP DEFAULT NOW()
       );
     `;
