@@ -38,7 +38,7 @@
         <div class="flex gap-10">
           <div class="form-group" style="flex:1;">
             <label>Roles / Duty Type</label>
-            <select id="worker_type" class="form-control" required>
+            <select id="worker_type" class="form-control">
               <option value="">Select Type</option>
               <option value="manager">Manager</option>
               <option value="normal">Normal</option>
@@ -53,7 +53,7 @@
         <div class="flex gap-10">
           <div class="form-group" style="flex:1;">
             <label>Phone Number</label>
-            <input type="text" id="phone" class="form-control" required>
+            <input type="text" id="phone" class="form-control">
           </div>
           <div class="form-group" style="flex:1;">
             <label>Blood Group</label>
@@ -77,11 +77,11 @@
         <div class="flex gap-10">
           <div class="form-group" style="flex:1;">
             <label>Aadhaar Card (12 Digits)</label>
-            <input type="text" id="aadhaar_number" class="form-control" pattern="^[0-9]{12}$" placeholder="0000 0000 0000" required>
+            <input type="text" id="aadhaar_number" class="form-control" pattern="^[0-9]{12}$" placeholder="0000 0000 0000">
           </div>
           <div class="form-group" style="flex:1;">
             <label>Joined Date</label>
-            <input type="date" id="joined_date" class="form-control">
+            <input type="date" id="joined_date" class="form-control" required>
           </div>
         </div>
         <div class="form-group mb-20">
@@ -293,14 +293,13 @@
         try {
           btn.classList.add('loading');
           
-          let aadhaar = document.getElementById('aadhaar_number').value.replace(/\s/g, '');
-          
+          const rawAadhaar = document.getElementById('aadhaar_number').value.trim().replace(/\s/g, '');
           const payload = {
-            name: document.getElementById('name').value,
-            worker_type: document.getElementById('worker_type').value,
-            phone: document.getElementById('phone').value,
-            address: document.getElementById('address').value,
-            aadhaar: aadhaar,
+            name: document.getElementById('name').value.trim(),
+            worker_type: document.getElementById('worker_type').value || null,
+            phone: document.getElementById('phone').value.trim() || null,
+            address: document.getElementById('address').value.trim() || null,
+            aadhaar: rawAadhaar || null,
             blood_group: document.getElementById('blood_group').value || null,
             joined_date: document.getElementById('joined_date').value || null,
             monthly_wage: document.getElementById('monthly_wage').value || 0,

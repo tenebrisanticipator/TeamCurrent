@@ -85,15 +85,20 @@ router.get('/', async (req, res) => {
 router.post('/', authorizeRole(['admin']), async (req, res) => {
   try {
     const { name, phone, address, aadhaar, blood_group, worker_type, joined_date, monthly_wage } = req.body;
-    if (!name || !worker_type) {
-      return res.status(400).json({ error: 'Name and Worker Type are required.' });
+    const safeName = typeof name === 'string' ? name.trim() : '';
+    const safeJoinedDate = typeof joined_date === 'string' ? joined_date.trim() : joined_date;
+
+    if (!safeName || !safeJoinedDate) {
+      return res.status(400).json({ error: 'Name and joining date are required.' });
     }
 
-    const db_phone = phone === undefined ? null : phone;
-    const db_address = address === undefined ? null : address;
-    const db_blood_group = (blood_group === undefined || !blood_group) ? null : blood_group;
-    const db_joined_date = (joined_date === undefined || !joined_date) ? null : joined_date;
-    const db_monthly_wage = (monthly_wage === undefined || !monthly_wage) ? 0 : monthly_wage;
+    const db_name = safeName;
+    const db_phone = (phone === undefined || phone === null || !String(phone).trim()) ? null : String(phone).trim();
+    const db_address = (address === undefined || address === null || !String(address).trim()) ? null : String(address).trim();
+    const db_blood_group = (blood_group === undefined || blood_group === null || !String(blood_group).trim()) ? null : String(blood_group).trim();
+    const db_worker_type = (worker_type === undefined || worker_type === null || !String(worker_type).trim()) ? null : String(worker_type).trim();
+    const db_joined_date = safeJoinedDate;
+    const db_monthly_wage = (monthly_wage === undefined || monthly_wage === null || monthly_wage === '' || Number(monthly_wage) === 0) ? 0 : monthly_wage;
 
     let aadhaarEncrypted = null;
     if (aadhaar && aadhaar !== '••••••••••••') {
@@ -104,7 +109,7 @@ router.post('/', authorizeRole(['admin']), async (req, res) => {
 
     const [worker] = await sql`
       INSERT INTO workers (worker_code, name, phone, address, aadhaar_encrypted, blood_group, worker_type, joined_date, monthly_wage)
-      VALUES (${workerCode}, ${name}, ${db_phone}, ${db_address}, ${aadhaarEncrypted}, ${db_blood_group}, ${worker_type}, ${db_joined_date}, ${db_monthly_wage})
+      VALUES (${workerCode}, ${db_name}, ${db_phone}, ${db_address}, ${aadhaarEncrypted}, ${db_blood_group}, ${db_worker_type}, ${db_joined_date}, ${db_monthly_wage})
       RETURNING worker_id, worker_code, name, worker_type
     `;
     
@@ -205,16 +210,22 @@ router.get('/:id', authorizeRole(['admin']), async (req, res) => {
 router.put('/:id', authorizeRole(['admin']), async (req, res) => {
   try {
     const { name, phone, address, aadhaar, blood_group, worker_type, is_active, joined_date, monthly_wage } = req.body;
+    const normalizedName = typeof name === 'string' ? name.trim() : '';
+    const normalizedJoinedDate = typeof joined_date === 'string' ? joined_date.trim() : joined_date;
+
+    if ((name !== undefined && !normalizedName) || (joined_date !== undefined && !normalizedJoinedDate)) {
+      return res.status(400).json({ error: 'Name and joining date are required.' });
+    }
     
     // Map undefined values defensively to prevent postgres UNDEFINED_VALUE errors
-    const db_name = name === undefined ? null : name;
-    const db_phone = phone === undefined ? null : phone;
-    const db_address = address === undefined ? null : address;
-    const db_blood_group = (blood_group === undefined || !blood_group) ? null : blood_group;
-    const db_worker_type = worker_type === undefined ? null : worker_type;
+    const db_name = name === undefined ? null : normalizedName || null;
+    const db_phone = (phone === undefined || phone === null || !String(phone).trim()) ? null : String(phone).trim();
+    const db_address = (address === undefined || address === null || !String(address).trim()) ? null : String(address).trim();
+    const db_blood_group = (blood_group === undefined || blood_group === null || !String(blood_group).trim()) ? null : String(blood_group).trim();
+    const db_worker_type = (worker_type === undefined || worker_type === null || !String(worker_type).trim()) ? null : String(worker_type).trim();
     const db_is_active = is_active === undefined ? true : is_active;
-    const db_joined_date = (joined_date === undefined || !joined_date) ? null : joined_date;
-    const db_monthly_wage = (monthly_wage === undefined || !monthly_wage) ? 0 : monthly_wage;
+    const db_joined_date = (joined_date === undefined || !normalizedJoinedDate) ? null : normalizedJoinedDate;
+    const db_monthly_wage = (monthly_wage === undefined || monthly_wage === null || monthly_wage === '' || Number(monthly_wage) === 0) ? 0 : monthly_wage;
 
     let query;
     if (aadhaar && aadhaar !== '••••••••••••') {

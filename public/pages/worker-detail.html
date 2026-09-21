@@ -75,7 +75,7 @@
         <div class="flex gap-10">
           <div class="form-group" style="flex:1;">
             <label>Roles / Duty Type</label>
-            <select id="edit-worker-type" class="form-control" required>
+            <select id="edit-worker-type" class="form-control">
               <option value="">Select Type</option>
               <option value="manager">Manager</option>
               <option value="normal">Normal</option>
@@ -90,7 +90,7 @@
         <div class="flex gap-10">
           <div class="form-group" style="flex:1;">
             <label>Phone Number</label>
-            <input type="text" id="edit-phone" class="form-control" required>
+            <input type="text" id="edit-phone" class="form-control">
           </div>
           <div class="form-group" style="flex:1;">
             <label>Blood Group</label>
@@ -110,7 +110,7 @@
         <div class="flex gap-10">
           <div class="form-group" style="flex:1;">
             <label>Joined Date</label>
-            <input type="date" id="edit-joined-date" class="form-control">
+            <input type="date" id="edit-joined-date" class="form-control" required>
           </div>
           <div class="form-group" style="flex:1;">
             <label>Aadhaar Card Number</label>
@@ -522,14 +522,14 @@
           btn.disabled = true;
           
           const payload = {
-            name: document.getElementById('edit-name').value,
-            worker_type: document.getElementById('edit-worker-type').value,
+            name: document.getElementById('edit-name').value.trim(),
+            worker_type: document.getElementById('edit-worker-type').value || null,
             monthly_wage: parseFloat(document.getElementById('edit-monthly-wage').value) || 0,
-            phone: document.getElementById('edit-phone').value,
-            address: document.getElementById('edit-address').value || '',
+            phone: document.getElementById('edit-phone').value.trim() || null,
+            address: document.getElementById('edit-address').value.trim() || null,
             blood_group: document.getElementById('edit-blood-group').value || null,
             joined_date: document.getElementById('edit-joined-date').value || null,
-            aadhaar: document.getElementById('edit-aadhaar-number').value.replace(/\s/g, ''),
+            aadhaar: document.getElementById('edit-aadhaar-number').value.trim().replace(/\s/g, '') || null,
             is_active: document.getElementById('edit-is-active').checked
           };
 
