@@ -90,10 +90,12 @@ async function setupDatabase() {
         worker_type VARCHAR CHECK (worker_type IN ('manager','normal','driver')),
         monthly_wage DECIMAL(10,2) DEFAULT 0,
         is_active BOOLEAN DEFAULT true,
+        is_deleted BOOLEAN NOT NULL DEFAULT false,
         joined_date DATE NOT NULL,
         created_at TIMESTAMP DEFAULT NOW()
       );
     `;
+    await sql`ALTER TABLE workers ADD COLUMN IF NOT EXISTS is_deleted BOOLEAN NOT NULL DEFAULT false`;
 
     // 7. events
     await sql`

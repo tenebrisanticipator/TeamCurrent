@@ -21,11 +21,31 @@ router.get('/search', async (req, res) => {
       FROM workers 
       WHERE (name ILIKE ${'%' + q + '%'} OR worker_code ILIKE ${'%' + q + '%'}) 
       AND is_active = true
+      AND is_deleted = false
       LIMIT ${limit}
     `;
     res.json({ data: workers });
   } catch (error) {
     console.error('Search workers error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+router.get('/stats', authorizeRole(['admin']), async (req, res) => {
+  try {
+    const [result] = await sql`
+      SELECT COUNT(DISTINCT a.worker_id) AS present_today
+      FROM attendance a
+      JOIN workers w ON w.worker_id = a.worker_id
+      WHERE a.date = CURRENT_DATE
+        AND a.status = 'present'
+        AND a.marked_by IS NOT NULL
+        AND w.is_active = true
+        AND w.is_deleted = false
+    `;
+    res.json({ presentToday: Number(result.present_today) });
+  } catch (error) {
+    console.error('Worker stats error:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -42,7 +62,8 @@ router.get('/', async (req, res) => {
       query = sql`
         SELECT worker_id, worker_code, name, phone, worker_type, is_active, joined_date, created_at
         FROM workers
-        WHERE (created_at, worker_id) < (${cursor.created_at}, ${cursor.id})
+        WHERE is_deleted = false
+        AND (created_at, worker_id) < (${cursor.created_at}, ${cursor.id})
         AND (name ILIKE ${'%' + search + '%'} OR worker_code ILIKE ${'%' + search + '%'})
         ORDER BY created_at DESC, worker_id DESC
         LIMIT ${limit + 1}
@@ -51,7 +72,8 @@ router.get('/', async (req, res) => {
       query = sql`
         SELECT worker_id, worker_code, name, phone, worker_type, is_active, joined_date, created_at
         FROM workers
-        WHERE (name ILIKE ${'%' + search + '%'} OR worker_code ILIKE ${'%' + search + '%'})
+        WHERE is_deleted = false
+        AND (name ILIKE ${'%' + search + '%'} OR worker_code ILIKE ${'%' + search + '%'})
         ORDER BY created_at DESC, worker_id DESC
         LIMIT ${limit + 1}
       `;
@@ -67,12 +89,13 @@ router.get('/', async (req, res) => {
       nextCursor = Buffer.from(JSON.stringify({ created_at: lastItem.created_at, id: lastItem.worker_id })).toString('base64');
     }
 
-    const countRes = await sql`SELECT COUNT(*) as count FROM workers WHERE name ILIKE ${'%' + search + '%'} OR worker_code ILIKE ${'%' + search + '%'}`;
-    let totalCount = parseInt(countRes[0].count);
-    if (search) {
-       const exactCount = await sql`SELECT COUNT(*) FROM workers WHERE name ILIKE ${'%' + search + '%'}`;
-       totalCount = parseInt(exactCount[0].count);
-    }
+    const [countRes] = await sql`
+      SELECT COUNT(*) AS count
+      FROM workers
+      WHERE is_deleted = false
+        AND (name ILIKE ${'%' + search + '%'} OR worker_code ILIKE ${'%' + search + '%'})
+    `;
+    const totalCount = parseInt(countRes.count);
     
     res.json({ data, nextCursor, hasNext, pageSize: limit, totalCount });
   } catch (error) {
@@ -84,7 +107,7 @@ router.get('/', async (req, res) => {
 // POST /api/workers - Create worker (Admin)
 router.post('/', authorizeRole(['admin']), async (req, res) => {
   try {
-    const { name, phone, address, aadhaar, blood_group, worker_type, joined_date, monthly_wage } = req.body;
+    const { name, phone, address, aadhaar, blood_group, worker_type, joined_date, monthly_wage, is_active } = req.body;
     const safeName = typeof name === 'string' ? name.trim() : '';
     const safeJoinedDate = typeof joined_date === 'string' ? joined_date.trim() : joined_date;
 
@@ -103,6 +126,7 @@ router.post('/', authorizeRole(['admin']), async (req, res) => {
     const db_worker_type = worker_type && String(worker_type).trim() ? String(worker_type).trim() : null;
     const db_joined_date = safeJoinedDate;
     const db_monthly_wage = monthly_wage === undefined || monthly_wage === null || monthly_wage === '' || Number(monthly_wage) === 0 ? 0 : Number(monthly_wage);
+    const db_is_active = typeof is_active === 'boolean' ? is_active : true;
 
     let aadhaarEncrypted = null;
     if (aadhaar && aadhaar !== '••••••••••••') {
@@ -120,8 +144,8 @@ router.post('/', authorizeRole(['admin']), async (req, res) => {
     const workerCode = await generateWorkerId();
 
     const [worker] = await sql`
-      INSERT INTO workers (worker_code, name, phone, address, aadhaar_encrypted, blood_group, worker_type, joined_date, monthly_wage)
-      VALUES (${workerCode}, ${db_name}, ${db_phone}, ${db_address}, ${aadhaarEncrypted}, ${db_blood_group}, ${db_worker_type}, ${db_joined_date}, ${db_monthly_wage})
+      INSERT INTO workers (worker_code, name, phone, address, aadhaar_encrypted, blood_group, worker_type, joined_date, monthly_wage, is_active)
+      VALUES (${workerCode}, ${db_name}, ${db_phone}, ${db_address}, ${aadhaarEncrypted}, ${db_blood_group}, ${db_worker_type}, ${db_joined_date}, ${db_monthly_wage}, ${db_is_active})
       RETURNING worker_id, worker_code, name, worker_type, joined_date
     `;
 
@@ -195,7 +219,7 @@ router.get('/:id/attendance/pdf', authorizeRole(['admin']), async (req, res) => 
 // GET /api/workers/:id
 router.get('/:id', authorizeRole(['admin']), async (req, res) => {
   try {
-    const workers = await sql`SELECT * FROM workers WHERE worker_id = ${req.params.id}`;
+    const workers = await sql`SELECT * FROM workers WHERE worker_id = ${req.params.id} AND is_deleted = false`;
     if (workers.length === 0) return res.status(404).json({ error: 'Worker not found' });
     
     const worker = workers[0];
@@ -223,15 +247,15 @@ router.put('/:id', authorizeRole(['admin']), async (req, res) => {
   try {
     const { name, phone, address, aadhaar, blood_group, worker_type, is_active, joined_date, monthly_wage } = req.body;
 
-    const [existingWorker] = await sql`SELECT * FROM workers WHERE worker_id = ${req.params.id}`;
+    const [existingWorker] = await sql`SELECT * FROM workers WHERE worker_id = ${req.params.id} AND is_deleted = false`;
     if (!existingWorker) return res.status(404).json({ error: 'Worker not found' });
 
     const updates = {
       name: name !== undefined ? (typeof name === 'string' ? name.trim() : '') : existingWorker.name,
-      phone: phone !== undefined ? (String(phone).trim() || null) : existingWorker.phone,
-      address: address !== undefined ? (String(address).trim() || null) : existingWorker.address,
-      blood_group: blood_group !== undefined ? (String(blood_group).trim() || null) : existingWorker.blood_group,
-      worker_type: worker_type !== undefined ? (String(worker_type).trim() || null) : existingWorker.worker_type,
+      phone: phone !== undefined ? (phone === null ? null : String(phone).trim() || null) : existingWorker.phone,
+      address: address !== undefined ? (address === null ? null : String(address).trim() || null) : existingWorker.address,
+      blood_group: blood_group !== undefined ? (blood_group === null ? null : String(blood_group).trim() || null) : existingWorker.blood_group,
+      worker_type: worker_type !== undefined ? (worker_type === null ? null : String(worker_type).trim() || null) : existingWorker.worker_type,
       is_active: is_active !== undefined ? Boolean(is_active) : existingWorker.is_active,
       joined_date: joined_date !== undefined ? (typeof joined_date === 'string' ? joined_date.trim() : joined_date) || null : existingWorker.joined_date,
       monthly_wage: monthly_wage !== undefined ? (Number(monthly_wage) >= 0 ? Number(monthly_wage) : 0) : existingWorker.monthly_wage
@@ -242,7 +266,9 @@ router.put('/:id', authorizeRole(['admin']), async (req, res) => {
     }
 
     if (aadhaar !== undefined) {
-      if (aadhaar === null || aadhaar === '' || aadhaar === '••••••••••••') {
+      if (aadhaar === '••••••••••••') {
+        updates.aadhaar_encrypted = existingWorker.aadhaar_encrypted;
+      } else if (aadhaar === null || aadhaar === '') {
         updates.aadhaar_encrypted = null;
       } else {
         try {
@@ -421,11 +447,17 @@ router.post('/:id/payments', authorizeRole(['admin', 'manager']), async (req, re
 // DELETE /api/workers/:id
 router.delete('/:id', authorizeRole(['admin']), async (req, res) => {
   try {
-    await sql`DELETE FROM workers WHERE worker_id = ${req.params.id}`;
-    res.json({ message: 'Worker deleted' });
+    const [worker] = await sql`
+      UPDATE workers
+      SET is_deleted = true, is_active = false
+      WHERE worker_id = ${req.params.id} AND is_deleted = false
+      RETURNING worker_id
+    `;
+    if (!worker) return res.status(404).json({ error: 'Worker not found' });
+    res.json({ message: 'Worker archived' });
   } catch (error) {
     console.error('Delete worker error:', error);
-    res.status(400).json({ error: 'Cannot delete worker. Unlink from events or user first.' });
+    res.status(500).json({ error: 'Unable to archive worker' });
   }
 });
 

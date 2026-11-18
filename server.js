@@ -5,7 +5,6 @@ const helmet = require('helmet');
 const cookieParser = require('cookie-parser');
 const csurf = require('csurf');
 const rateLimit = require('express-rate-limit');
-const cron = require('node-cron');
 const { sql } = require('./config/db');
 require('dotenv').config();
 
@@ -51,23 +50,6 @@ app.get('/', (req, res) => {
 
 // Attach API router under /api
 app.use('/api', apiRouter);
-
-// Daily cron job for attendance
-// Cron at 18:30 UTC (midnight IST) daily
-cron.schedule('30 18 * * *', async () => {
-  try {
-    console.log('Running daily attendance auto-populate...');
-    await sql`
-      INSERT INTO attendance (worker_id, date, status, location_note)
-      SELECT worker_id, CURRENT_DATE, 'present', 'Godown'
-      FROM workers WHERE is_active = true
-      ON CONFLICT (worker_id, date) DO NOTHING;
-    `;
-    console.log('Daily attendance generated.');
-  } catch (error) {
-    console.error('Attendance cron error:', error);
-  }
-});
 
 // Start server
 app.listen(PORT, () => {
