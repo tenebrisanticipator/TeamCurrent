@@ -32,6 +32,26 @@ const csrfProtection = csurf({ cookie: { httpOnly: true, secure: process.env.NOD
 // Main API Router - We'll attach routes here
 const apiRouter = express.Router();
 
+let workerSchemaReady;
+app.use('/api/workers', async (req, res, next) => {
+  try {
+    if (!workerSchemaReady) {
+      workerSchemaReady = sql`
+        ALTER TABLE workers
+        ADD COLUMN IF NOT EXISTS is_deleted BOOLEAN NOT NULL DEFAULT false
+      `.catch((error) => {
+        workerSchemaReady = null;
+        throw error;
+      });
+    }
+    await workerSchemaReady;
+    next();
+  } catch (error) {
+    console.error('Worker schema migration error:', error);
+    res.status(500).json({ error: 'Worker service is temporarily unavailable' });
+  }
+});
+
 // Routes mapping
 apiRouter.use('/auth', require('./routes/auth'));
 apiRouter.use('/workers', require('./routes/workers'));
