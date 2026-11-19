@@ -3,7 +3,9 @@ const SVGtoPDF = require('svg-to-pdfkit');
 const fs = require('fs');
 const path = require('path');
 const { sql } = require('../config/db');
-const faviconSvg = fs.readFileSync(path.join(__dirname, '../public/favicon.svg'), 'utf8');
+const faviconSvg = fs
+  .readFileSync(path.join(__dirname, '../public/favicon.svg'), 'utf8')
+  .replace('<rect width="1254" height="1254" fill="#ffffff" />', '');
 
 // ─── Design Tokens ────────────────────────────────────────────────────────────
 const COLOR = {
