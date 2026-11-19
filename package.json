@@ -27,7 +27,8 @@
     "jsonwebtoken": "^9.0.3",
     "node-cron": "^4.2.1",
     "pdfkit": "^0.17.2",
-    "postgres": "^3.4.8"
+    "postgres": "^3.4.8",
+    "svg-to-pdfkit": "^0.1.8"
   },
   "devDependencies": {
     "nodemon": "^3.1.14"

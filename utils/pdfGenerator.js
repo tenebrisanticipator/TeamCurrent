@@ -1,5 +1,9 @@
 const PDFDocument = require('pdfkit');
+const SVGtoPDF = require('svg-to-pdfkit');
+const fs = require('fs');
+const path = require('path');
 const { sql } = require('../config/db');
+const faviconSvg = fs.readFileSync(path.join(__dirname, '../public/favicon.svg'), 'utf8');
 
 // ─── Design Tokens ────────────────────────────────────────────────────────────
 const COLOR = {
@@ -22,13 +26,7 @@ const COLOR = {
 function drawHeader(doc, title) {
   const L = COLOR.marginL;
 
-  // Amber logo block
-  doc.rect(L, 35, 44, 44).fill(COLOR.brand);
-  doc
-    .fillColor('#FFFFFF')
-    .font('Helvetica-Bold')
-    .fontSize(22)
-    .text('TC', L + 9, 47, { width: 26, align: 'center' });
+  SVGtoPDF(doc, faviconSvg, L, 35, { width: 44, height: 44 });
 
   // Company name + tagline (absolute, right of logo)
   doc
