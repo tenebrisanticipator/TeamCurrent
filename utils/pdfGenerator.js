@@ -277,7 +277,7 @@ async function generateEventChallanPDF(eventId, res) {
   `;
 
   const doc = new PDFDocument({ margin: 0, size: 'A4' });
-  res.setHeader('Content-Disposition', `attachment; filename="Delivery_Challan_${eventId}.pdf"`);
+  res.setHeader('Content-Disposition', `inline; filename="Delivery_Challan_${eventId}.pdf"`);
   res.setHeader('Content-Type', 'application/pdf');
   doc.pipe(res);
 
@@ -347,7 +347,7 @@ async function generateEventChallanWithLogsPDF(eventId, res) {
   `;
 
   const doc = new PDFDocument({ margin: 0, size: 'A4' });
-  res.setHeader('Content-Disposition', `attachment; filename="Delivery_Challan_With_Logs_${eventId}.pdf"`);
+  res.setHeader('Content-Disposition', `inline; filename="Delivery_Challan_With_Logs_${eventId}.pdf"`);
   res.setHeader('Content-Type', 'application/pdf');
   doc.pipe(res);
 
@@ -554,7 +554,7 @@ async function generateLendChallanPDF(lendId, res) {
   `;
 
   const doc = new PDFDocument({ margin: 0, size: 'A4' });
-  res.setHeader('Content-Disposition', `attachment; filename="Lend_Challan_${lendId}.pdf"`);
+  res.setHeader('Content-Disposition', `inline; filename="Lend_Challan_${lendId}.pdf"`);
   res.setHeader('Content-Type', 'application/pdf');
   doc.pipe(res);
 
@@ -616,7 +616,7 @@ async function generateLendChallanWithLogsPDF(lendId, res) {
   `;
 
   const doc = new PDFDocument({ margin: 0, size: 'A4' });
-  res.setHeader('Content-Disposition', `attachment; filename="Lend_Challan_With_Logs_${lendId}.pdf"`);
+  res.setHeader('Content-Disposition', `inline; filename="Lend_Challan_With_Logs_${lendId}.pdf"`);
   res.setHeader('Content-Type', 'application/pdf');
   doc.pipe(res);
 
