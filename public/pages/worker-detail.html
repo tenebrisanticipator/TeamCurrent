@@ -9,9 +9,113 @@
   <link rel="stylesheet" href="/css/animations.css">
   <script src="/js/auth-guard.js"></script>
   <style>
-    .workspace-grid { display: grid; grid-template-columns: 1.1fr 0.9fr; gap: 24px; }
+    .worker-detail-page {
+      width: 100%;
+      max-width: 1680px;
+      min-width: 0;
+      margin-inline: auto;
+      padding: 28px clamp(20px, 3vw, 48px);
+    }
+    .worker-detail-header {
+      align-items: center;
+      margin-bottom: 24px;
+      padding-bottom: 16px;
+    }
+    .worker-detail-header .header-title {
+      margin-bottom: 5px;
+      white-space: normal;
+    }
+    .worker-detail-actions { flex-shrink: 0; }
+    .worker-detail-info {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 20px;
+    }
+    .workspace-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr);
+      gap: 24px;
+    }
+    .worker-detail-section-header { min-height: 38px; }
+    .worker-detail-section-actions { flex-wrap: nowrap; }
+    .worker-detail-table { min-width: 500px; }
+    .worker-detail-summary {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 15px;
+      text-align: center;
+    }
+    .worker-detail-modal-actions .btn { width: auto; }
+
     @media (max-width: 1023px) {
-      .workspace-grid { grid-template-columns: 1fr; }
+      .workspace-grid { grid-template-columns: minmax(0, 1fr); }
+      .worker-detail-info { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+    @media (max-width: 767px) {
+      .worker-detail-page { padding: 76px 16px 24px; }
+      .worker-detail-header {
+        align-items: stretch;
+        gap: 12px;
+      }
+      .worker-detail-actions { width: 100%; }
+      .worker-detail-actions .btn { flex: 1; width: auto; }
+      .worker-detail-section-header {
+        align-items: stretch;
+        flex-direction: column;
+        gap: 10px;
+      }
+      .worker-detail-section-actions { width: 100%; }
+      .worker-detail-section-actions .btn { flex: 1; width: auto; }
+      .worker-detail-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .worker-detail-summary > :last-child { grid-column: 1 / -1; }
+      .worker-detail-card { min-height: 0 !important; }
+    }
+    @media (max-width: 639px) {
+      .worker-detail-info { gap: 16px 12px; }
+      .worker-detail-summary { gap: 12px; }
+      .worker-detail-table-wrap {
+        overflow: visible;
+        border: 0;
+        background: transparent;
+        margin-bottom: 0;
+      }
+      .worker-detail-table {
+        display: block;
+        width: 100%;
+        min-width: 0;
+      }
+      .worker-detail-table thead { display: none; }
+      .worker-detail-table tbody { display: grid; gap: 10px; }
+      .worker-detail-table tr {
+        display: block;
+        padding: 6px 12px;
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        background: var(--surface);
+      }
+      .worker-detail-table tr:hover td { transform: none; }
+      .worker-detail-table td {
+        display: grid;
+        grid-template-columns: minmax(90px, 0.7fr) minmax(0, 1.3fr);
+        gap: 10px;
+        padding: 8px 0;
+        border-bottom: 1px solid var(--border);
+        overflow-wrap: anywhere;
+      }
+      .worker-detail-table td::before {
+        content: attr(data-label);
+        color: var(--text-muted);
+        font-size: 10px;
+        font-weight: 600;
+        text-transform: uppercase;
+      }
+      .worker-detail-table td[colspan] {
+        display: block;
+        border-bottom: 0;
+        text-align: center;
+      }
+      .worker-detail-table td[colspan]::before { content: none; }
+      .worker-detail-modal-actions { flex-wrap: nowrap; }
     }
   </style>
 </head>
@@ -34,7 +138,7 @@
           <label>Note / Reason (Optional)</label>
           <textarea id="attendance-note" class="form-control" placeholder="e.g. Health leave, finished contract..." rows="3"></textarea>
         </div>
-        <div class="flex gap-10 style-buttons" style="margin-top:20px;">
+        <div class="flex gap-10 style-buttons worker-detail-modal-actions" style="margin-top:20px;">
           <button type="submit" class="btn btn-primary" id="submit-attendance-btn" style="flex:1;">Submit</button>
           <button type="button" class="btn btn-outline" onclick="toggleModal('attendance-modal', false)" style="flex:1;">Cancel</button>
         </div>
@@ -55,7 +159,7 @@
           <label>Notes / Description (Optional)</label>
           <textarea id="payment-notes" class="form-control" placeholder="e.g. Partial advance, full month salary..." rows="3"></textarea>
         </div>
-        <div class="flex gap-10 style-buttons" style="margin-top:20px;">
+        <div class="flex gap-10 style-buttons worker-detail-modal-actions" style="margin-top:20px;">
           <button type="submit" class="btn btn-primary" id="submit-payment-btn" style="flex:1;">Log Payment</button>
           <button type="button" class="btn btn-outline" onclick="toggleModal('payment-modal', false)" style="flex:1;">Cancel</button>
         </div>
@@ -125,7 +229,7 @@
           <input type="checkbox" id="edit-is-active" style="width: 18px; height: 18px; cursor: pointer;">
           <label for="edit-is-active" style="cursor: pointer; margin-bottom: 0;">Employed / On Payroll</label>
         </div>
-        <div class="flex gap-10 style-buttons" style="margin-top:20px;">
+        <div class="flex gap-10 style-buttons worker-detail-modal-actions" style="margin-top:20px;">
           <button type="submit" class="btn btn-primary" id="submit-edit-btn" style="flex:1;">Save Profile</button>
           <button type="button" class="btn btn-outline" onclick="toggleModal('worker-modal', false)" style="flex:1;">Cancel</button>
         </div>
@@ -153,21 +257,21 @@
     </aside>
 
     <!-- MAIN CONTENT -->
-    <main class="main-content" style="padding: 20px 30px;">
-      <header class="header header-enter" style="margin-bottom: 25px; padding-bottom: 15px;">
+    <main class="main-content worker-detail-page">
+      <header class="header header-enter worker-detail-header">
         <div>
           <h1 class="header-title" style="margin-bottom: 5px;" id="worker-name">-</h1>
           <div style="font-size: 14px; color: var(--text-muted);" id="worker-subtext">-</div>
         </div>
-        <div class="flex gap-10 items-center">
+        <div class="flex gap-10 items-center worker-detail-actions">
           <button class="btn btn-outline admin-only" onclick="openEditModal()" style="padding: 6px 12px;">Edit Profile</button>
           <a href="/pages/workers.html" class="btn btn-outline" style="padding: 6px 12px;">Back</a>
         </div>
       </header>
 
       <!-- Worker Details Top Section -->
-      <div class="card stagger-in" style="--i:1; margin-bottom: 25px; padding: 20px;">
-        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px;">
+      <div class="card stagger-in worker-detail-card" style="--i:1; margin-bottom: 25px; padding: 20px;">
+        <div class="worker-detail-info">
           <div>
             <label style="display: block; font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Worker Code</label>
             <div id="detail-code" style="font-weight: bold; font-size: 15px; color: var(--white);">-</div>
@@ -208,16 +312,16 @@
         
         <!-- LEFT COLUMN: Manual Attendance -->
         <div class="stagger-in" style="--i:2;">
-          <div class="flex justify-between items-center mb-10">
+          <div class="flex justify-between items-center mb-10 worker-detail-section-header">
             <h2 style="font-size:18px;">Manual Attendance Log</h2>
-            <div class="flex gap-10">
+            <div class="flex gap-10 worker-detail-section-actions">
               <button class="btn btn-primary" style="padding: 5px 10px; font-size:12px; background: var(--success); border-color: var(--success);" onclick="openAttendanceModal(true)">Mark Active</button>
               <button class="btn btn-outline" style="padding: 5px 10px; font-size:12px; border-color: var(--danger); color: var(--danger);" onclick="openAttendanceModal(false)">Mark Inactive</button>
             </div>
           </div>
-          <div class="card" style="padding: 15px; min-height: 400px;">
-            <div class="table-container">
-              <table>
+          <div class="card worker-detail-card" style="padding: 15px; min-height: 400px;">
+            <div class="table-container worker-detail-table-wrap">
+              <table class="worker-detail-table">
                 <thead>
                   <tr>
                     <th>Active Date</th>
@@ -236,14 +340,14 @@
 
         <!-- RIGHT COLUMN: Salary & Payments -->
         <div class="stagger-in" style="--i:3;">
-          <div class="flex justify-between items-center mb-10">
+          <div class="flex justify-between items-center mb-10 worker-detail-section-header">
             <h2 style="font-size:18px;">Salary & Payments</h2>
             <button class="btn btn-primary" style="padding: 5px 10px; font-size:12px;" onclick="openPaymentModal()">Record Payment</button>
           </div>
 
           <!-- Summary Panel -->
           <div class="card mb-20" style="padding: 20px; background: rgba(255,255,255,0.02); border: 1px solid var(--border);">
-            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; text-align: center;">
+            <div class="worker-detail-summary">
               <div>
                 <div style="font-size: 10px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px;">Monthly Wage</div>
                 <div id="stat-monthly-wage" style="font-size: 18px; font-weight: bold; color: var(--white); margin-top: 5px;">₹0.00</div>
@@ -260,9 +364,9 @@
           </div>
 
           <!-- Payments Log -->
-          <div class="card" style="padding: 15px; min-height: 315px;">
-            <div class="table-container">
-              <table>
+          <div class="card worker-detail-card" style="padding: 15px; min-height: 315px;">
+            <div class="table-container worker-detail-table-wrap">
+              <table class="worker-detail-table">
                 <thead>
                   <tr>
                     <th>Amount</th>
@@ -298,12 +402,23 @@
       document.getElementById(id).classList.toggle('open', show);
     }
 
+    function todayInIST() {
+      const parts = new Intl.DateTimeFormat('en-CA', {
+        timeZone: 'Asia/Kolkata',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit'
+      }).formatToParts(new Date());
+      const dateParts = Object.fromEntries(parts.map(({ type, value }) => [type, value]));
+      return `${dateParts.year}-${dateParts.month}-${dateParts.day}`;
+    }
+
     // Modal triggers
     function openAttendanceModal(isActive) {
       document.getElementById('attendance-modal-title').textContent = isActive ? 'Mark Worker Active' : 'Mark Worker Inactive';
       document.getElementById('attendance-status-val').value = isActive ? 'present' : 'absent';
       document.getElementById('attendance-date-label').textContent = isActive ? 'Active Date' : 'Inactive Date';
-      document.getElementById('attendance-date').value = new Date().toISOString().slice(0, 10);
+      document.getElementById('attendance-date').value = todayInIST();
       
       const noteGroup = document.getElementById('attendance-note-group');
       if (isActive) {
@@ -386,10 +501,10 @@
           
           container.innerHTML += `
             <tr>
-              <td>${h.active_date ? window.formatDateISTOnly(h.active_date) : '-'}</td>
-              <td>${h.inactive_date ? window.formatDateISTOnly(h.inactive_date) : '-'}</td>
-              <td><span class="badge" style="background:${daysText==='Ongoing'?'var(--success)':'var(--surface-2)'};">${daysText}</span></td>
-              <td>${h.note || '-'}</td>
+              <td data-label="Active Date">${h.active_date ? window.formatDateISTOnly(h.active_date) : '-'}</td>
+              <td data-label="Inactive Date">${h.inactive_date ? window.formatDateISTOnly(h.inactive_date) : '-'}</td>
+              <td data-label="Days Worked"><span class="badge" style="background:${daysText==='Ongoing'?'var(--success)':'var(--surface-2)'};">${daysText}</span></td>
+              <td data-label="Notes">${h.note || '-'}</td>
             </tr>
           `;
         });
@@ -423,13 +538,13 @@
         payments.forEach(p => {
           container.innerHTML += `
             <tr>
-              <td style="font-weight:600; color:var(--white);">₹${parseFloat(p.amount).toFixed(2)}</td>
-              <td>${p.given_by_name || 'System'}</td>
-              <td>
+              <td data-label="Amount" style="font-weight:600; color:var(--white);">₹${parseFloat(p.amount).toFixed(2)}</td>
+              <td data-label="Given By">${p.given_by_name || 'System'}</td>
+              <td data-label="Date / Time">
                 <div style="font-size:12px;">${window.formatDateISTOnly(p.given_date)}</div>
                 <div style="font-size:10px; color:var(--text-muted); margin-top:2px;">${p.given_time}</div>
               </td>
-              <td>${p.notes || '-'}</td>
+              <td data-label="Notes">${p.notes || '-'}</td>
             </tr>
           `;
         });

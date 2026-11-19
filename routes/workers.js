@@ -37,9 +37,8 @@ router.get('/stats', authorizeRole(['admin']), async (req, res) => {
       SELECT COUNT(DISTINCT a.worker_id) AS present_today
       FROM attendance a
       JOIN workers w ON w.worker_id = a.worker_id
-      WHERE a.date = CURRENT_DATE
+      WHERE a.date = (CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Kolkata')::date
         AND a.status = 'present'
-        AND a.marked_by IS NOT NULL
         AND w.is_active = true
         AND w.is_deleted = false
     `;

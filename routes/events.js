@@ -122,7 +122,8 @@ router.patch('/:id/status', authorizeRole(['admin', 'manager']), async (req, res
       // Auto-return assigned workers to Godown for the current day
       await sql`
         UPDATE attendance SET location_note = 'Godown', event_id = NULL
-        WHERE event_id = ${req.params.id} AND date = CURRENT_DATE
+        WHERE event_id = ${req.params.id}
+          AND date = (CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Kolkata')::date
       `;
     }
 
@@ -209,7 +210,7 @@ router.post('/:id/assign-worker', authorizeRole(['admin']), async (req, res) => 
     // Also mark attendance as present with event location implicitly for today
     await sql`
       INSERT INTO attendance (worker_id, date, status, location_note, event_id, marked_by)
-      VALUES (${worker_id}, CURRENT_DATE, 'present', 'Event Duty', ${req.params.id}, ${req.user.user_id})
+      VALUES (${worker_id}, (CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Kolkata')::date, 'present', 'Event Duty', ${req.params.id}, ${req.user.user_id})
       ON CONFLICT (worker_id, date) DO UPDATE 
       SET location_note = 'Event Duty', event_id = ${req.params.id}, marked_by = ${req.user.user_id}
     `;
