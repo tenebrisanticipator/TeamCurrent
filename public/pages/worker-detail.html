@@ -10,9 +10,10 @@
   <script src="/js/auth-guard.js"></script>
   <style>
     .worker-detail-page {
+      flex: 1 1 0;
       width: 100%;
-      max-width: 1680px;
       min-width: 0;
+      max-width: 1680px;
       margin-inline: auto;
       padding: 28px clamp(20px, 3vw, 48px);
     }
@@ -28,14 +29,72 @@
     .worker-detail-actions { flex-shrink: 0; }
     .worker-detail-info {
       display: grid;
-      grid-template-columns: repeat(4, minmax(0, 1fr));
-      gap: 20px;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 18px 24px;
+    }
+    .worker-detail-groups {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 18px;
+    }
+    .worker-detail-info-group {
+      min-width: 0;
+      padding: 20px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: rgba(255,255,255,0.015);
+    }
+    .worker-detail-info-group h2 {
+      margin-bottom: 18px;
+      color: var(--amber);
+      font: 500 13px var(--font-body);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+    .worker-detail-field { min-width: 0; }
+    .worker-detail-field label {
+      display: block;
+      margin-bottom: 6px;
+      color: var(--text-muted);
+      font-size: 11px;
+      font-weight: 500;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+    .worker-detail-value {
+      color: var(--white);
+      font-size: 14px;
+      line-height: 1.5;
+      overflow-wrap: anywhere;
+    }
+    .worker-detail-value.is-empty { color: var(--text-muted); }
+    .worker-detail-status {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 28px;
+      padding: 4px 10px;
+      border: 1px solid currentColor;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 600;
+      line-height: 1;
+      white-space: nowrap;
+    }
+    .worker-detail-status.is-active {
+      color: var(--success);
+      background: rgba(46,204,113,0.12);
+    }
+    .worker-detail-status.is-inactive {
+      color: var(--text-muted);
+      background: rgba(122,155,181,0.1);
     }
     .workspace-grid {
       display: grid;
-      grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr);
+      grid-template-columns: repeat(2, minmax(0, 1fr));
       gap: 24px;
     }
+    .workspace-grid > * { min-width: 0; }
     .worker-detail-section-header { min-height: 38px; }
     .worker-detail-section-actions { flex-wrap: nowrap; }
     .worker-detail-table { min-width: 500px; }
@@ -49,7 +108,7 @@
 
     @media (max-width: 1023px) {
       .workspace-grid { grid-template-columns: minmax(0, 1fr); }
-      .worker-detail-info { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .worker-detail-groups { grid-template-columns: minmax(0, 1fr); }
     }
     @media (max-width: 767px) {
       .worker-detail-page { padding: 76px 16px 24px; }
@@ -69,9 +128,11 @@
       .worker-detail-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
       .worker-detail-summary > :last-child { grid-column: 1 / -1; }
       .worker-detail-card { min-height: 0 !important; }
+      .worker-detail-info-group { padding: 16px; }
     }
     @media (max-width: 639px) {
       .worker-detail-info { gap: 16px 12px; }
+      .worker-detail-info { grid-template-columns: minmax(0, 1fr); }
       .worker-detail-summary { gap: 12px; }
       .worker-detail-table-wrap {
         overflow: visible;
@@ -270,40 +331,50 @@
       </header>
 
       <!-- Worker Details Top Section -->
-      <div class="card stagger-in worker-detail-card" style="--i:1; margin-bottom: 25px; padding: 20px;">
-        <div class="worker-detail-info">
-          <div>
-            <label style="display: block; font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Worker Code</label>
-            <div id="detail-code" style="font-weight: bold; font-size: 15px; color: var(--white);">-</div>
-          </div>
-          <div>
-            <label style="display: block; font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Phone Number</label>
-            <div id="detail-phone" style="font-size: 14px; color: var(--white);">-</div>
-          </div>
-          <div>
-            <label style="display: block; font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Role / Duty</label>
-            <div id="detail-role" style="font-size: 14px; color: var(--white);">-</div>
-          </div>
-          <div>
-            <label style="display: block; font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Status</label>
-            <div id="detail-status">-</div>
-          </div>
-          <div>
-            <label style="display: block; font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Blood Group</label>
-            <div id="detail-blood" style="font-size: 14px; color: var(--white);">-</div>
-          </div>
-          <div>
-            <label style="display: block; font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Joined Date</label>
-            <div id="detail-joined" style="font-size: 14px; color: var(--white);">-</div>
-          </div>
-          <div>
-            <label style="display: block; font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Aadhaar Number</label>
-            <div id="detail-aadhaar" style="font-size: 14px; color: var(--white); font-family: monospace;">-</div>
-          </div>
-          <div>
-            <label style="display: block; font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Address</label>
-            <div id="detail-address" style="font-size: 14px; color: var(--text-muted); line-height: 1.4;">-</div>
-          </div>
+      <div class="card stagger-in worker-detail-card" style="--i:1; margin-bottom: 25px; padding: 0; min-height: 0;">
+        <div class="worker-detail-groups">
+          <section class="worker-detail-info-group">
+            <h2>Identity &amp; Employment</h2>
+            <div class="worker-detail-info">
+              <div class="worker-detail-field">
+                <label>Worker Code</label>
+                <div id="detail-code" class="worker-detail-value">—</div>
+              </div>
+              <div class="worker-detail-field">
+                <label>Role / Duty</label>
+                <div id="detail-role" class="worker-detail-value">—</div>
+              </div>
+              <div class="worker-detail-field">
+                <label>Status</label>
+                <div id="detail-status" class="worker-detail-value">—</div>
+              </div>
+              <div class="worker-detail-field">
+                <label>Joined Date</label>
+                <div id="detail-joined" class="worker-detail-value">—</div>
+              </div>
+            </div>
+          </section>
+          <section class="worker-detail-info-group">
+            <h2>Contact &amp; Personal</h2>
+            <div class="worker-detail-info">
+              <div class="worker-detail-field">
+                <label>Phone Number</label>
+                <div id="detail-phone" class="worker-detail-value">—</div>
+              </div>
+              <div class="worker-detail-field">
+                <label>Blood Group</label>
+                <div id="detail-blood" class="worker-detail-value">—</div>
+              </div>
+              <div class="worker-detail-field">
+                <label>Aadhaar Number</label>
+                <div id="detail-aadhaar" class="worker-detail-value">—</div>
+              </div>
+              <div class="worker-detail-field">
+                <label>Address</label>
+                <div id="detail-address" class="worker-detail-value">—</div>
+              </div>
+            </div>
+          </section>
         </div>
       </div>
 
@@ -402,6 +473,14 @@
       document.getElementById(id).classList.toggle('open', show);
     }
 
+    function setDetailValue(id, value) {
+      const element = document.getElementById(id);
+      const text = value === null || value === undefined ? '' : String(value).trim();
+      const isEmpty = !text || text.toLowerCase() === 'null' || text.toLowerCase() === 'undefined';
+      element.textContent = isEmpty ? '—' : text;
+      element.classList.toggle('is-empty', isEmpty);
+    }
+
     function todayInIST() {
       const parts = new Intl.DateTimeFormat('en-CA', {
         timeZone: 'Asia/Kolkata',
@@ -458,23 +537,27 @@
         const data = await window.api.get(`/api/workers/${workerId}`);
         workerData = data;
 
-        document.getElementById('worker-name').textContent = data.name;
-        document.getElementById('worker-subtext').textContent = `${data.worker_code} • ${data.worker_type}`;
+        document.getElementById('worker-name').textContent = data.name || 'Worker Details';
+        const subtitle = [data.worker_code, data.worker_type].filter(value =>
+          value !== null && value !== undefined && String(value).trim() &&
+          !['null', 'undefined'].includes(String(value).toLowerCase())
+        );
+        document.getElementById('worker-subtext').textContent = subtitle.join(' • ');
 
-        document.getElementById('detail-code').textContent = data.worker_code;
-        document.getElementById('detail-phone').textContent = data.phone || 'N/A';
-        document.getElementById('detail-role').textContent = data.worker_type;
-        document.getElementById('detail-blood').textContent = data.blood_group || 'N/A';
-        document.getElementById('detail-joined').textContent = data.joined_date ? window.formatDateISTOnly(data.joined_date) : 'N/A';
-        document.getElementById('detail-aadhaar').textContent = data.aadhaar ? data.aadhaar.replace(/(\d{4})/g, '$1 ').trim() : 'Not provided';
-        document.getElementById('detail-address').textContent = data.address || 'Not provided';
+        setDetailValue('detail-code', data.worker_code);
+        setDetailValue('detail-phone', data.phone);
+        setDetailValue('detail-role', data.worker_type);
+        setDetailValue('detail-blood', data.blood_group);
+        setDetailValue('detail-joined', data.joined_date ? window.formatDateISTOnly(data.joined_date) : null);
+        const aadhaar = data.aadhaar && !['null', 'undefined'].includes(String(data.aadhaar).toLowerCase())
+          ? String(data.aadhaar).replace(/(\d{4})/g, '$1 ').trim()
+          : null;
+        setDetailValue('detail-aadhaar', aadhaar);
+        setDetailValue('detail-address', data.address);
 
         const statusDiv = document.getElementById('detail-status');
-        if (data.is_active) {
-          statusDiv.innerHTML = '<span class="badge" style="background: var(--success); color: var(--white); font-size:11px; padding:3px 8px;">On Payroll</span>';
-        } else {
-          statusDiv.innerHTML = '<span class="badge" style="background: var(--surface-3); color: var(--text-muted); font-size:11px; padding:3px 8px;">Not on Payroll</span>';
-        }
+        statusDiv.classList.remove('is-empty');
+        statusDiv.innerHTML = `<span class="worker-detail-status ${data.is_active ? 'is-active' : 'is-inactive'}">${data.is_active ? 'On Payroll' : 'Not on Payroll'}</span>`;
       } catch(err) {
         window.showToast('Failed to load worker details', 'error');
       }

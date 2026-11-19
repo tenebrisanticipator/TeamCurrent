@@ -10,6 +10,7 @@ document.documentElement.style.visibility = 'hidden';
     }
     const data = await res.json();
     window.currentUser = data.user;
+    window.dispatchEvent(new Event('auth-ready'));
     
     // SECURITY: Provide role-checking functions for page-level access control
     window.checkPageAccess = function(allowedRoles) {

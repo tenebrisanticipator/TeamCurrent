@@ -9,6 +9,62 @@
   <link rel="stylesheet" href="/css/main.css">
   <link rel="stylesheet" href="/css/animations.css">
   <script src="/js/auth-guard.js"></script>
+  <style>
+    .dashboard-stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr));
+      gap: 20px;
+    }
+    .dashboard-stat-card {
+      min-height: 168px;
+      padding: 26px;
+      border-color: rgba(122,155,181,0.2);
+      background: linear-gradient(145deg, rgba(26,48,72,0.96), rgba(17,34,54,0.98));
+    }
+    .dashboard-stat-card .card-title {
+      position: relative;
+      z-index: 1;
+      margin-bottom: 18px;
+      color: #b7c9d8;
+      font-size: 15px;
+    }
+    .dashboard-stat-card .stat-number {
+      position: relative;
+      z-index: 1;
+      color: var(--amber);
+      font-size: 52px;
+      text-shadow: 0 0 22px rgba(245,166,35,0.16);
+    }
+    .dashboard-stat-card .card-bg-icon {
+      width: 72px;
+      height: 72px;
+      opacity: 0.16;
+      fill: #f5a623;
+    }
+    .dashboard-stat-card:hover .card-bg-icon { opacity: 0.25; }
+    .dashboard-header .user-info > a {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+    }
+    .dashboard-header .role-chip {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      align-self: flex-end;
+      width: fit-content;
+      min-width: 0;
+      min-height: 22px;
+      margin-top: 6px !important;
+      padding: 3px 9px;
+      line-height: 1;
+      text-align: center;
+    }
+    @media (max-width: 767px) {
+      .dashboard-stat-card { min-height: 140px; padding: 20px; }
+      .dashboard-stat-card .stat-number { font-size: 42px; }
+    }
+  </style>
 </head>
 
 <body>
@@ -37,7 +93,7 @@
 
     <!-- MAIN CONTENT -->
     <main class="main-content">
-      <header class="header header-enter">
+      <header class="header header-enter dashboard-header">
         <h1 class="header-title">Dashboard</h1>
         <div class="user-info">
           <a href="/pages/profile.html" class="text-right" style="cursor:pointer;">
@@ -48,10 +104,10 @@
         </div>
       </header>
 
-      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 24px;">
+      <div class="dashboard-stats-grid">
 
         <!-- CARD 1 -->
-        <a href="/pages/inventory.html" class="card stagger-in" style="--i:1" aria-label="Total Active Items">
+        <a href="/pages/inventory.html" class="card dashboard-stat-card stagger-in" style="--i:1" aria-label="Total Active Items">
           <svg class="card-bg-icon" viewBox="0 0 24 24">
             <path
               d="M21 16.5c0 .38-.21.71-.53.88l-7.9 4.44c-.16.12-.36.18-.57.18-.21 0-.41-.06-.57-.18l-7.9-4.44A.991.991 0 013 16.5v-9c0-.38.21-.71.53-.88l7.9-4.44c.16-.12.36-.18.57-.18.21 0 .41.06.57.18l7.9 4.44c.32.17.53.5.53.88v9zM12 4.15L5.6 7.7 12 11.25l6.4-3.55L12 4.15z" />
@@ -63,7 +119,7 @@
         </a>
 
         <!-- CARD 2 -->
-        <a href="/pages/events.html" class="card stagger-in" style="--i:2" aria-label="Ongoing Events">
+        <a href="/pages/events.html" class="card dashboard-stat-card stagger-in" style="--i:2" aria-label="Ongoing Events">
           <svg class="card-bg-icon" viewBox="0 0 24 24">
             <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V5h14v14z" />
           </svg>
@@ -74,7 +130,7 @@
         </a>
 
         <!-- CARD 3 -->
-        <a href="/pages/workers.html" class="card stagger-in admin-only" style="--i:3" aria-label="Workers Present Today">
+        <a href="/pages/workers.html" class="card dashboard-stat-card stagger-in admin-only" style="--i:3" aria-label="Workers Present Today">
           <svg class="card-bg-icon" viewBox="0 0 24 24">
             <path
               d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z" />
@@ -94,19 +150,24 @@
   <script src="/js/transitions.js"></script>
   <script src="/js/utils.js"></script>
   <script>
+    function getCurrentUser() {
+      if (window.currentUser) return Promise.resolve(window.currentUser);
+      return new Promise(resolve => {
+        window.addEventListener('auth-ready', () => resolve(window.currentUser), { once: true });
+      });
+    }
+
     document.addEventListener('DOMContentLoaded', async () => {
       try {
-        // Fetch raw counts via limits mostly just as a quick hack for dashboard. 
-        // In a real app we'd have a /api/stats endpoint, but we can reuse list endpoints with limit=1.
-
-        const itemsRes = await window.api.get('/api/items?limit=1');
+        const user = await getCurrentUser();
+        const [itemsRes, eventsRes] = await Promise.all([
+          window.api.get('/api/items?limit=1'),
+          window.api.get('/api/events/stats')
+        ]);
         document.getElementById('stat-items').textContent = itemsRes.totalCount || 0;
+        document.getElementById('stat-events').textContent = eventsRes.ongoingCount;
 
-        const eventsRes = await window.api.get('/api/events?limit=100'); // small limit, just count ongoing
-        const ongoing = (eventsRes.data || []).filter(e => e.status === 'ongoing').length;
-        document.getElementById('stat-events').textContent = ongoing;
-
-        if (window.currentUser && window.currentUser.role === 'admin') {
+        if (user && user.role === 'admin') {
           const workersRes = await window.api.get('/api/workers/stats');
           document.getElementById('stat-workers').textContent = workersRes.presentToday;
         }

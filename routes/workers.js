@@ -38,7 +38,7 @@ router.get('/stats', authorizeRole(['admin']), async (req, res) => {
       FROM attendance a
       JOIN workers w ON w.worker_id = a.worker_id
       WHERE a.date = (CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Kolkata')::date
-        AND a.status = 'present'
+        AND LOWER(BTRIM(a.status)) IN ('present', 'checked in', 'half day', 'half-day')
         AND w.is_active = true
         AND w.is_deleted = false
     `;

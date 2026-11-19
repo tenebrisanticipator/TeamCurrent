@@ -47,6 +47,21 @@ router.get('/', async (req, res) => {
   }
 });
 
+// GET /api/events/stats
+router.get('/stats', async (req, res) => {
+  try {
+    const [result] = await sql`
+      SELECT COUNT(*) AS ongoing_count
+      FROM events
+      WHERE LOWER(BTRIM(status)) = 'ongoing'
+    `;
+    res.json({ ongoingCount: Number(result.ongoing_count) });
+  } catch (error) {
+    console.error('Event stats error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 // GET /api/events/:id
 router.get('/:id', async (req, res) => {
   try {
@@ -212,7 +227,7 @@ router.post('/:id/assign-worker', authorizeRole(['admin']), async (req, res) => 
       INSERT INTO attendance (worker_id, date, status, location_note, event_id, marked_by)
       VALUES (${worker_id}, (CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Kolkata')::date, 'present', 'Event Duty', ${req.params.id}, ${req.user.user_id})
       ON CONFLICT (worker_id, date) DO UPDATE 
-      SET location_note = 'Event Duty', event_id = ${req.params.id}, marked_by = ${req.user.user_id}
+      SET status = 'present', location_note = 'Event Duty', event_id = ${req.params.id}, marked_by = ${req.user.user_id}
     `;
 
     res.json({ message: 'Worker assigned' });
